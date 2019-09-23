@@ -12,7 +12,6 @@ type Buffer = [[u16; BUFFER_WIDTH]; BUFFER_HEIGHT];
 
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
-const BUFFER_ADDR: *mut Buffer = 0xb8000 as *mut Buffer;
 
 pub struct TextBuffer {
     addr: *mut Buffer,
@@ -99,4 +98,28 @@ impl TextBuffer {
             (*self.addr)[self.row] = [0 as u16; BUFFER_WIDTH];
         }
     }
+}
+
+impl core::fmt::Write for TextBuffer {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.write(s, Color::White, Color::Black);
+        Ok(())
+    }
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($args:tt)*) => ($crate::_print(format_args!($($args)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($print!("\n"));
+    ($($args:tt)*) => ($crate::print!("{}\n", format_args!($($args)*)));
+}
+
+#[doc(hidden)]
+pub fn _print(args: core::fmt::Arguments) {
+    use core::fmt::Write;
+    TEXT_BUFFER.lock().write_fmt(args).unwrap();
 }

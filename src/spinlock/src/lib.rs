@@ -34,7 +34,7 @@ impl<T: Sized> Mutex<T> {
 
 impl<'a, T: Sized> Drop for Guard<'a, T> {
     fn drop(&mut self) {
-        self.lock.store(false, Ordering::Acquire);
+        self.lock.store(false, Ordering::Release);
     }
 }
 
