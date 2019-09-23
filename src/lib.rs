@@ -1,18 +1,17 @@
 #![no_std]
 
 use core::panic::PanicInfo;
+use vga::println;
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    println!("{}", info);
     loop {}
 }
-
-use vga::println;
 
 #[no_mangle]
 pub fn koop() -> ! {
     vga::TEXT_BUFFER.lock().clear();
     println!("Hello {}!", "World");
-    println!("Second {}!", "Line");
     loop {}
 }
