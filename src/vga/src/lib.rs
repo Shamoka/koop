@@ -1,5 +1,13 @@
 #![no_std]
 
+use spinlock;
+
+pub static TEXT_BUFFER: spinlock::Mutex<TextBuffer> = spinlock::Mutex::new(TextBuffer {
+    addr: 0xb8000 as *mut Buffer,
+    row: 0,
+    col: 0
+});
+
 type Buffer = [[u16; BUFFER_WIDTH]; BUFFER_HEIGHT];
 
 const BUFFER_HEIGHT: usize = 25;
