@@ -8,6 +8,7 @@ edition = "2018"
 vga = { path = "src/vga/" }
 serial = { path = "src/serial/" }
 spinlock = { path = "src/spinlock/" }
+multiboot2 = { path = "src/multiboot2/" }
 
 [lib]
 crate-type = ["staticlib"]
