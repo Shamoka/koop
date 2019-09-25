@@ -25,6 +25,10 @@ start:
 	call setup_page_tables
 	call enable_paging
 
+	mov eax, cr3
+	or eax, 0b11
+	mov [pml4_table + 511 * 8], eax
+
 	lgdt [gdt64.pointer]
 
 	jmp gdt64.code:long_mode_start
@@ -119,8 +123,6 @@ pml4_table:
 pdp_table:
 	resb 4096
 pd_table:
-	resb 4096
-pt_table:
 	resb 4096
 stack_bottom:
 	resb 4096 * 4

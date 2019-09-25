@@ -2,7 +2,6 @@
 
 use core::panic::PanicInfo;
 use vga::println;
-use multiboot2;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -14,13 +13,6 @@ fn panic(info: &PanicInfo) -> ! {
 pub fn koop(multiboot2_info: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
     let mb2 = multiboot2::Info::new(multiboot2_info);
-    match mb2.get_elf_sections() {
-        Some(sections) => {
-            for section in sections {
-                println!("0x{:x} 0x{:x} 0x{:x}", section.sh_addr, section.sh_size, section.sh_flags);
-            }
-        },
-        None => ()
-    }
+    let _frame_allocator = mem::frame::Allocator::new(&mb2);
     loop {}
 }

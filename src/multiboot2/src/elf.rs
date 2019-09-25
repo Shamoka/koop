@@ -12,6 +12,7 @@ pub struct SectionIter {
 }
 
 pub struct Section {
+    pub sh_type: u64,
     pub sh_flags: u64,
     pub sh_addr: u64,
     pub sh_size: u64
@@ -46,13 +47,17 @@ impl Iterator for SectionIter {
              true => {
                 unsafe {
                     let section = Section {
+                        sh_type: *((self.addr + 0x04) as *const u64),
                         sh_flags: *((self.addr + 0x08) as *const u64),
                         sh_addr: *((self.addr + 0x10) as *const u64),
                         sh_size: *((self.addr + 0x20) as *const u64)
                     };
                     self.count -= 1;
                     self.addr += self.entsize as usize;
-                    Some(section)
+                    match section.sh_type {
+                        0x00 => self.next(),
+                        _ => Some(section)
+                    }
                 }
             },
             false => None

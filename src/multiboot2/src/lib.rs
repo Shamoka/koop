@@ -5,8 +5,8 @@ mod mem_map;
 mod elf;
 
 pub struct Info {
-    base: usize,
-    _total_size: u32
+    pub base: usize,
+    pub total_size: u32
 }
 
 pub struct Tag {
@@ -31,7 +31,7 @@ impl Info {
     pub fn new(info_addr: usize) -> Info {
         Info {
             base: info_addr,
-            _total_size: unsafe { *(info_addr as *const u32) }
+            total_size: unsafe { *(info_addr as *const u32) }
         }
     }
 

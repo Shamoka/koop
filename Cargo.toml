@@ -9,6 +9,7 @@ vga = { path = "src/vga/" }
 serial = { path = "src/serial/" }
 spinlock = { path = "src/spinlock/" }
 multiboot2 = { path = "src/multiboot2/" }
+mem = { path = "src/mem/" }
 
 [lib]
 crate-type = ["staticlib"]
