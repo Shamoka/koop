@@ -1,7 +1,8 @@
 use multiboot2;
 
-const FRAME_SIZE: usize = 4096;
+pub const FRAME_SIZE: usize = 4096;
 
+#[derive(Copy, Clone)]
 pub struct Frame {
     pub base: usize
 }

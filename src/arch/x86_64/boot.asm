@@ -1,4 +1,5 @@
 global start
+global pml4_table
 extern long_mode_start
 
 section .rodata
@@ -24,10 +25,6 @@ start:
 
 	call setup_page_tables
 	call enable_paging
-
-	mov eax, cr3
-	or eax, 0b11
-	mov [pml4_table + 511 * 8], eax
 
 	lgdt [gdt64.pointer]
 

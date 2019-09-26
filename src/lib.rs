@@ -12,7 +12,9 @@ fn panic(info: &PanicInfo) -> ! {
 #[no_mangle]
 pub fn koop(multiboot2_info: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
-    let mb2 = multiboot2::Info::new(multiboot2_info);
-    let _frame_allocator = mem::frame::Allocator::new(&mb2);
+    let addr = mem::addr::Addr::new(0o177777_752_123_546_765_1234);
+    for table in addr.tables() {
+        vga::println!("{:o}", table.bits.value);
+    }
     loop {}
 }
