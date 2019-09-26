@@ -10,11 +10,7 @@ fn panic(info: &PanicInfo) -> ! {
 }
 
 #[no_mangle]
-pub fn koop(multiboot2_info: usize) -> ! {
+pub fn koop(_multiboot2_info: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
-    let addr = mem::addr::Addr::new(0o177777_752_123_546_765_1234);
-    for table in addr.tables() {
-        vga::println!("{:o}", table.bits.value);
-    }
     loop {}
 }

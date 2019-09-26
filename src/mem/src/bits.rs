@@ -11,7 +11,7 @@ impl Bits {
 
     pub fn get_mask(begin: usize, end: usize) -> usize {
         let mut mask = 0;
-        for i in begin..=end {
+        for _ in begin..=end {
             mask = (mask << 1) + 1;
         }
         mask << begin
@@ -21,7 +21,7 @@ impl Bits {
         self.value & Bits::get_mask(begin, end)
     }
 
-    pub fn set_bits(&mut self, begin: usize, end: usize, value: usize) {
+    pub fn set_bits(&mut self, begin: usize, _end: usize, value: usize) {
         let mask = value << begin;
         self.value |= mask;
     }
