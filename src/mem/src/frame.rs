@@ -22,12 +22,12 @@ impl Frame {
 pub struct Allocator {
     kernel_start: usize,
     kernel_end: usize,
-    pub memory_size: usize,
-    pub free_base: usize
+    memory_size: usize,
+    free_base: usize,
 }
 
 impl Allocator {
-    pub fn new(mb2: &multiboot2::Info) -> Allocator {
+    pub fn new(mb2: multiboot2::Info) -> Allocator {
         let kstart = mb2.get_elf_sections()
             .expect("No ELF section found in multiboot2 info")
             .map(|x| x.sh_addr)
@@ -42,8 +42,8 @@ impl Allocator {
         Allocator {
             kernel_start: kstart as usize,
             kernel_end: kend as usize,
-            memory_size: super::UPPER_MEMORY_BOUND + mem_size as usize,
-            free_base: super::UPPER_MEMORY_BOUND
+            memory_size: mem_size as usize,
+            free_base: super::UPPER_MEMORY_BOUND as usize
         }
     }
 

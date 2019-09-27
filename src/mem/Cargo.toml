@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 multiboot2 = { path = "../multiboot2" }
 vga = { path = "../vga" }
+spinlock = { path = "../spinlock" }
