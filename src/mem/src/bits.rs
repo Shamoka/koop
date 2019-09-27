@@ -1,3 +1,4 @@
+#[derive(Copy, Clone)]
 pub struct Bits {
     pub value: usize
 }

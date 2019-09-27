@@ -49,6 +49,13 @@ $(ISO):		$(KERNEL) $(GRUBDIR)/$(GRUB_CFG)
 	cp $(GRUBDIR)/$(GRUB_CFG) $(BUILDDIR)/iso/boot/grub/grub.cfg
 	grub-mkrescue -o $(ISO) $(BUILDDIR)/iso
 
+
+run:	$(ISO)
+	qemu-system-x86_64 -cdrom $(ISO)
+
+debug:	$(ISO)
+	qemu-system-x86_64 -cdrom $(ISO) -s -S
+
 iso:	$(ISO)
 
 $(OBJDIR)/%.o:	$(ASMDIR)/%.asm | $(OBJDIR)
