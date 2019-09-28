@@ -9,7 +9,6 @@ mod frame;
 mod table;
 mod entry;
 mod stack;
-mod page_manager;
 
 pub mod area;
 pub mod allocator;

@@ -8,7 +8,7 @@ pub trait TableLevel {
     type DownLevel: TableLevel;
 
     fn map_addr(&mut self,
-                addr: Addr,
+                addr: &Addr,
                 frame_allocator: &mut frame::Allocator)
         -> Result<(), AllocError>;
 }
@@ -25,7 +25,7 @@ macro_rules! table_struct {
 macro_rules! impl_table {
     ($T:tt, $level: literal) => {
         impl $T{
-            pub fn new(addr: Addr) -> $T {
+            pub fn new(addr: &Addr) -> $T {
                 $T {
                     entries: addr.bits.value as *mut [usize; 512],
                     level: $level
@@ -65,7 +65,7 @@ macro_rules! impl_table_level {
             type DownLevel = $U;
 
             fn map_addr(&mut self, 
-                        addr: Addr,
+                        addr: &Addr,
                         frame_allocator: &mut frame::Allocator)
                 -> Result<(), AllocError> {
                     let i = addr.get_table_index(self.level);
@@ -77,7 +77,7 @@ macro_rules! impl_table_level {
                             return Err(some_error);
                         }
                     }
-                    let mut down_level = Self::DownLevel::new(addr.get_table_addr(self.level - 1));
+                    let mut down_level = Self::DownLevel::new(&addr.get_table_addr(self.level - 1));
                     if do_flush {
                         down_level.flush(0, 511);
                     }
@@ -90,7 +90,7 @@ macro_rules! impl_table_level {
             type DownLevel = $T;
 
             fn map_addr(&mut self, 
-                        addr: Addr,
+                        addr: &Addr,
                         frame_allocator: &mut frame::Allocator)
                 -> Result<(), AllocError> {
                     let i = addr.get_table_index(self.level);

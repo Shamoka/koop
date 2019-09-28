@@ -32,6 +32,11 @@ impl Area {
         }
     }
 
+    pub fn contains(&self, addr: &Addr) -> bool {
+        self.base.bits.value <= addr.bits.value
+            && self.base.bits.value + self.len > addr.bits.value
+    }
+
     pub fn overlap(&self, other: &Area) -> bool {
         if other.len == 0 {
             return false;

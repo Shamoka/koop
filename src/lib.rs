@@ -2,7 +2,7 @@
 
 use core::panic::PanicInfo;
 use vga::println;
-use mem::allocator::ALLOCATOR;
+use mem::allocator::TMP_ALLOCATOR;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -14,10 +14,15 @@ fn panic(info: &PanicInfo) -> ! {
 pub fn koop(mb2: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
     unsafe {
-        ALLOCATOR.lock().init(
+        TMP_ALLOCATOR.lock().init(
             0xffff_ffff_ffff_f000, 
             multiboot2::Info::new(mb2));
     }
+    let area = mem::area::Area::new(0o0003_123_234_345 << 12, 0xfff000, mem::area::Alignment::Page);
+    match TMP_ALLOCATOR.lock().map_area(&area) {
+        Ok(_) => (),
+        Err(error) => panic!("{:?}", error)
+    };
     println!("OK");
     loop {}
 }
