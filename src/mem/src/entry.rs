@@ -34,8 +34,4 @@ impl Entry {
     pub fn set_flags(&mut self, flags: usize) {
         self.value.set_bits(0, 63, flags & ALL_FLAGS);
     }
-
-    pub fn test_flags(&self, flags: usize) -> bool {
-        self.value.get_bits(0, 63) & flags == flags
-    }
 }
