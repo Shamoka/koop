@@ -4,87 +4,100 @@ use crate::table::TableLevel;
 use crate::addr::Addr;
 use crate::AllocError;
 use crate::area::Area;
+use crate::area;
 use crate::stack::Stack;
-use crate::stack;
 
 use spinlock::Mutex;
 
 use core::cell::UnsafeCell;
 
-pub static TMP_ALLOCATOR: Mutex<Allocator> = Mutex::new(Allocator::new());
+pub static ALLOCATOR: Mutex<Allocator> = Mutex::new(Allocator::new());
+pub const TEMP_STACK_AREA: Area = Area::new(0o000000_001_000_000_000_0000,
+                                            0x1000,
+                                            area::Alignment::Page);
+pub const PML4_ADDR: Addr = Addr::new(0xffff_ffff_ffff_f000);
 
 pub struct Allocator {
-    frame_allocator: UnsafeCell<Option<frame::Allocator>>,
-    pml4: UnsafeCell<Option<PML4>>,
-    stack: UnsafeCell<Option<Stack>>,
+    internal: UnsafeCell<Stage>
+}
+
+pub struct Stage0Allocator {
+    frame_allocator: frame::Allocator,
+    stack: Stack,
+    pml4: PML4
+}
+
+enum Stage {
+    Uninitialized,
+    Stage0(Stage0Allocator)
 }
 
 impl Allocator {
     pub const fn new() -> Allocator {
         Allocator {
-            frame_allocator: UnsafeCell::new(None),
-            pml4: UnsafeCell::new(None),
-            stack: UnsafeCell::new(None)
+            internal: UnsafeCell::new(Stage::Uninitialized)
         }
     }
 
-    pub unsafe fn init(&self, pml4: usize, mb2: multiboot2::Info) {
-        *(self.frame_allocator.get()) = Some(frame::Allocator::new(mb2));
-        let mut pml4_table = PML4::new(&Addr::new(pml4));
-        pml4_table.flush(1, 510);
-        *(self.pml4.get()) = Some(pml4_table);
-        if let Some(frame_allocator) =  &mut *self.frame_allocator.get() {
-            if let Some(pml4) =  &mut *self.pml4.get() {
-                for page in stack::DEFAULT_TEMP_STACK_AREA.pages() {
-                    if let Err(error) = pml4.map_addr(&page, frame_allocator) {
-                        panic!("{:?}", error);
-                    }
-                }
-            }
-        }
-        *(self.stack.get()) = Some(Stack::new());
-    }
-
-    unsafe fn map_page(&self, addr: &Addr) -> Result<(), AllocError> {
-        if let Some(frame_allocator) = &mut *self.frame_allocator.get() {
-            if let Some(pml4) = &mut *self.pml4.get() {
-                if let Err(error) = pml4.map_addr(addr, frame_allocator) {
-                    return Err(error);
-                }
-                return Ok(());
-            }
-        }
-        Err(AllocError::Uninitialized)
-    }
-
-    pub fn map_area(&self, area: &Area) -> Result<(), AllocError> {
+    pub fn memmap(&self, area: &Area) -> Result<(), AllocError> {
         unsafe {
-            match &mut *self.stack.get() {
-                Some(stack) => {
-                    if stack.contains_area(area) {
-                        return Err(AllocError::InUse);
-                    }
-                },
-                None => return Err(AllocError::Uninitialized)
-            };
-            for page in area.pages() {
-                let to_map = Addr::to_valid(&page);
-                if to_map.bits.value & (0o777 << 39) == (0o777 << 39) {
-                    return Err(AllocError::Forbidden);
-                }
-                if let Err(error) = self.map_page(&to_map) {
-                    return Err(error);
-                }
+            match &mut *self.internal.get() {
+                Stage::Stage0(allocator) => allocator.memmap(area),
+                Stage::Uninitialized => Err(AllocError::Uninitialized)
             }
-            match &mut *self.stack.get() {
-                Some(stack) => {
-                    if let Err(error) = stack.push(area, self) {
-                        return Err(error);
-                    }
-                },
-                None => return Err(AllocError::Uninitialized)
-            };
-            Ok(())
         }
+    }
+
+    pub unsafe fn stage0(&self, mb2: multiboot2::Info) -> Result<(), AllocError> {
+        match Stage0Allocator::new(mb2) {
+            Ok(allocator) => {
+                *self.internal.get() = Stage::Stage0(allocator);
+                Ok(())
+            },
+            Err(error) => Err(error)
+        }
+    }
+}
+
+impl Stage0Allocator {
+    pub fn new(mb2: multiboot2::Info) -> Result<Stage0Allocator, AllocError> {
+        let mut allocator = Stage0Allocator {
+            frame_allocator: frame::Allocator::new(mb2),
+            pml4: PML4::new(&PML4_ADDR),
+            stack: Stack::new(&TEMP_STACK_AREA)
+
+        };
+        allocator.pml4.flush(1, 510);
+        for page in TEMP_STACK_AREA.pages() {
+            match allocator.pml4.map_addr(&page, &mut allocator.frame_allocator) {
+                Ok(()) => (),
+                Err(error) => return Err(error)
+            };
+        }
+        Ok(allocator)
+    }
+
+    pub fn memmap(&mut self, area: &Area) -> Result<(), AllocError> {
+        if self.stack.contains_area(area) {
+            return Err(AllocError::InUse);
+        }
+        if let Err(addr) = self.stack.push(area) {
+            if let Err(error) = self.pml4.map_addr(&addr, &mut self.frame_allocator) {
+                return Err(error);
+            }
+            if let Err(_error) = self.stack.push(area) {
+                return Err(AllocError::Uninitialized);
+            }
+        }
+        for page in area.pages() {
+            let to_map = Addr::to_valid(&page);
+            if to_map.bits.value & (0o777 << 39) == (0o777 << 39) {
+                return Err(AllocError::Forbidden);
+            }
+            if let Err(error) = self.pml4.map_addr(&to_map, &mut self.frame_allocator) {
+                return Err(error);
+            }
+        }
+        Ok(())
     }
 }
