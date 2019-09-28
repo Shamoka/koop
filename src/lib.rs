@@ -18,11 +18,14 @@ pub fn koop(mb2: usize) -> ! {
             0xffff_ffff_ffff_f000, 
             multiboot2::Info::new(mb2));
     }
-    let area = mem::area::Area::new(0o0003_123_234_345 << 12, 0xfff000, mem::area::Alignment::Page);
+    let area = mem::area::Area::new(0o003_123_234_345 << 12, 0xfff000, mem::area::Alignment::Page);
     match TMP_ALLOCATOR.lock().map_area(&area) {
         Ok(_) => (),
         Err(error) => panic!("{:?}", error)
     };
+    unsafe {
+        *(0o003_123_234_350 as *mut u8) = 1u8;
+    }
     println!("OK");
     loop {}
 }

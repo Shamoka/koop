@@ -35,6 +35,7 @@ LD			=	ld
 RM			=	rm -rf
 
 DEBUG_SYM	=	--strip-debug
+RELEASE		=
 
 QEMU_OPT	=	-m 2G
 
@@ -45,7 +46,7 @@ $(KERNEL): 	$(OBJ) $(LD_SCRIPT) cargo
 	$(LD) -n -T $(LD_SCRIPT) $(DEBUG_SYM) -o $(KERNEL) $(OBJ) $(RUST_LIB)
 
 cargo:
-	cargo +nightly xbuild --target $(ASMDIR)/koop.json
+	cargo +nightly xbuild $(RELEASE) --target $(ASMDIR)/koop.json
 
 $(ISO):		$(KERNEL) $(GRUBDIR)/$(GRUB_CFG)
 	mkdir -p $(BUILDDIR)/iso/boot/grub
@@ -59,6 +60,9 @@ run:	$(ISO)
 
 debug: 	DEBUG_SYM=
 debug:	$(ISO)
+
+release: RELEASE= --release
+release: $(ISO)
 
 run-debug:	debug
 	qemu-system-x86_64 -cdrom $(ISO) -s -S

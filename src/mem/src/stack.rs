@@ -1,9 +1,8 @@
-use crate::allocator::TMP_ALLOCATOR;
+use crate::allocator::Allocator;
 use crate::AllocError;
 use crate::frame;
 use crate::area;
 use crate::area::Area;
-use crate::addr::Addr;
 
 pub struct Stack {
     top: *mut Area,
@@ -35,20 +34,9 @@ impl Stack {
         false
     }
 
-    pub fn contains_addr(&self, addr: &Addr) -> bool {
-        unsafe {
-            for i in 0..self.pos {
-                if (*self.top.offset(i as isize)).contains(addr) {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    pub fn push(&mut self, value: &Area) -> Result<(), AllocError> {
+    pub fn push(&mut self, value: &Area, allocator: &Allocator) -> Result<(), AllocError> {
         if self.pos >= self.len / core::mem::size_of::<Area>() {
-            if let Err(error) = self.grow() {
+            if let Err(error) = self.grow(allocator) {
                 return Err(error);
             }
         }
@@ -59,11 +47,11 @@ impl Stack {
         Ok(())
     }
 
-    fn grow(&mut self) -> Result<(), AllocError> {
+    fn grow(&mut self, allocator: &Allocator) -> Result<(), AllocError> {
         let new_area = Area::new(self.top as usize + self.len,
                                  frame::FRAME_SIZE,
                                  area::Alignment::Page);
-        match TMP_ALLOCATOR.lock().map_area(&new_area) {
+        match allocator.map_area(&new_area) {
             Ok(()) => {
                 self.len += frame::FRAME_SIZE;
                 Ok(())
