@@ -2,6 +2,7 @@
 
 use core::panic::PanicInfo;
 use vga::println;
+use mem::allocator::ALLOCATOR;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -13,7 +14,7 @@ fn panic(info: &PanicInfo) -> ! {
 pub fn koop(mb2: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
     unsafe {
-        mem::allocator::ALLOCATOR.lock().init(
+        ALLOCATOR.lock().init(
             0xffff_ffff_ffff_f000, 
             multiboot2::Info::new(mb2));
     }

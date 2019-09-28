@@ -32,10 +32,10 @@ macro_rules! impl_table {
                 }
             }
 
-            pub fn flush(&mut self) {
-                for i in 0..512 {
+            pub fn flush(&mut self, i: usize, j: usize) {
+                for index in i..=j {
                     unsafe {
-                        (*self.entries)[i] = 0;
+                        (*self.entries)[index] = 0;
                     }
                 }
             }
@@ -79,7 +79,7 @@ macro_rules! impl_table_level {
                     }
                     let mut down_level = Self::DownLevel::new(addr.get_table_addr(self.level - 1));
                     if do_flush {
-                        down_level.flush();
+                        down_level.flush(0, 511);
                     }
                     down_level.map_addr(addr, frame_allocator)
                 }

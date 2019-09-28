@@ -34,11 +34,15 @@ AS			=	nasm
 LD			=	ld
 RM			=	rm -rf
 
+DEBUG_SYM	=	--strip-debug
+
+QEMU_OPT	=	-m 2G
+
 all:		$(KERNEL)
 
 $(KERNEL): 	$(OBJ) $(LD_SCRIPT) cargo
 	mkdir -p $(KERNELDIR)
-	$(LD) -n -T $(LD_SCRIPT) -o $(KERNEL) $(OBJ) $(RUST_LIB)
+	$(LD) -n -T $(LD_SCRIPT) $(DEBUG_SYM) -o $(KERNEL) $(OBJ) $(RUST_LIB)
 
 cargo:
 	cargo +nightly xbuild --target $(ASMDIR)/koop.json
@@ -51,9 +55,12 @@ $(ISO):		$(KERNEL) $(GRUBDIR)/$(GRUB_CFG)
 
 
 run:	$(ISO)
-	qemu-system-x86_64 -cdrom $(ISO)
+	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_OPT)
 
+debug: 	DEBUG_SYM=
 debug:	$(ISO)
+
+run-debug:	debug
 	qemu-system-x86_64 -cdrom $(ISO) -s -S
 
 iso:	$(ISO)

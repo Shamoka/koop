@@ -33,4 +33,10 @@ SECTIONS
 		*(.data .data*)
 		. = ALIGN(4K);
 	}
+
+	.bss :
+	{
+		*(.bss .bss*)
+		. = ALIGN(4K);
+	}
 }

@@ -10,9 +10,13 @@ pub mod table;
 pub mod entry;
 pub mod area;
 pub mod allocator;
+pub mod stack;
 
+#[derive(Debug)]
 pub enum AllocError {
     OutOfMemory,
     Uninitialized,
-    InUse
+    InUse,
+    InvalidAddr,
+    Forbidden
 }
