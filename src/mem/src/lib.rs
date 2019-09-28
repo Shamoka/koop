@@ -9,6 +9,7 @@ mod frame;
 mod table;
 mod entry;
 mod stack;
+mod stage1;
 
 pub mod area;
 pub mod allocator;
