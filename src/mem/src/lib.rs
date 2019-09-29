@@ -4,7 +4,6 @@
 const UPPER_MEMORY_BOUND: usize = 1 << 20;
 
 mod addr;
-mod bits;
 mod frame;
 mod table;
 mod entry;

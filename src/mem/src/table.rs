@@ -27,7 +27,7 @@ macro_rules! impl_table {
         impl $T{
             pub fn new(addr: &Addr) -> $T {
                 $T {
-                    entries: addr.bits.value as *mut [usize; 512],
+                    entries: addr.addr as *mut [usize; 512],
                     level: $level
                 }
             }
@@ -46,7 +46,8 @@ macro_rules! impl_table {
                 -> Result<(), AllocError> {
                     match frame_allocator.alloc() {
                         Some(frame) => {
-                            let new_entry = Entry::new(frame.base, entry::FLAG_WRITABLE | entry::FLAG_PRESENT);
+                            let new_entry = Entry::new(frame.base.addr,
+                                                       entry::FLAG_WRITABLE | entry::FLAG_PRESENT);
                             unsafe {
                                 (*self.entries)[i] = new_entry.value();
                             }
@@ -69,9 +70,9 @@ macro_rules! impl_table_level {
                         frame_allocator: &mut frame::Allocator)
                 -> Result<(), AllocError> {
                     let i = addr.get_table_index(self.level);
-                    let entry = unsafe { Entry::from_value((*self.entries)[i]) };
+                    let entry = unsafe { Entry::from_entry((*self.entries)[i]) };
                     let mut do_flush = false;
-                    if entry.value() == 0 {
+                    if entry.unused() {
                         do_flush = true;
                         if let Err(some_error) = self.set_entry(i, frame_allocator) {
                             return Err(some_error);
@@ -94,10 +95,10 @@ macro_rules! impl_table_level {
                         frame_allocator: &mut frame::Allocator)
                 -> Result<(), AllocError> {
                     let i = addr.get_table_index(self.level);
-                    let entry = unsafe { Entry::from_value((*self.entries)[i]) };
-                    match entry.value() {
-                        0 => self.set_entry(i, frame_allocator),
-                        _ => Err(AllocError::InUse)
+                    let entry = unsafe { Entry::from_entry((*self.entries)[i]) };
+                    match entry.unused() {
+                        true => self.set_entry(i, frame_allocator),
+                        false => Err(AllocError::InUse)
                     }
                 }
         }

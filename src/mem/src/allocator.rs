@@ -1,4 +1,4 @@
-use crate::addr::Addr;
+use crate::addr::{Addr, AddrType};
 use crate::AllocError;
 use crate::area::Area;
 use crate::stage1;
@@ -9,9 +9,9 @@ use core::cell::UnsafeCell;
 
 pub static ALLOCATOR: Mutex<Allocator> = Mutex::new(Allocator::new());
 
-pub const TMP_STACK_AREA: Area = Area::new(0o000000_001_000_000_000_0000, 0x1000);
-pub const MEMORY_MAP_AREA: Area = Area::new(0o000000_002_000_000_000_0000, 0x1000);
-pub const PML4_ADDR: Addr = Addr::new(0xffff_ffff_ffff_f000);
+pub const TMP_STACK_AREA: Area = Area::new(0o000000_001_000_000_000_0000, 0x1000, AddrType::Virtual);
+pub const MEMORY_MAP_AREA: Area = Area::new(0o000000_002_000_000_000_0000, 0x1000, AddrType::Virtual);
+pub const PML4_ADDR: Addr = Addr::new(0xffff_ffff_ffff_f000, AddrType::Virtual);
 
 pub struct Allocator {
     internal: UnsafeCell<Stage>

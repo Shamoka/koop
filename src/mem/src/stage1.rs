@@ -1,7 +1,6 @@
 use crate::frame;
 use crate::table::PML4;
 use crate::table::TableLevel;
-use crate::addr::Addr;
 use crate::AllocError;
 use crate::area::Area;
 use crate::stack::Stack;
@@ -47,11 +46,10 @@ impl Allocator {
             }
         }
         for page in area.pages() {
-            let to_map = Addr::to_valid(&page);
-            if to_map.bits.value & (0o777 << 39) == (0o777 << 39) {
+            if page.addr & (0o777 << 39) == (0o777 << 39) {
                 return Err(AllocError::Forbidden);
             }
-            if let Err(error) = self.pml4.map_addr(&to_map, &mut self.frame_allocator) {
+            if let Err(error) = self.pml4.map_addr(&page, &mut self.frame_allocator) {
                 return Err(error);
             }
         }

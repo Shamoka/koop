@@ -1,6 +1,6 @@
 use crate::frame;
 use crate::area::Area;
-use crate::addr::Addr;
+use crate::addr::{Addr, AddrType};
 
 pub struct Stack {
     top: *mut Area,
@@ -11,7 +11,7 @@ pub struct Stack {
 impl Stack {
     pub fn new(area: &Area) -> Stack {
         Stack {
-            top: area.base.bits.value as *mut Area,
+            top: area.base.addr as *mut Area,
             len: area.len,
             pos: 0,
         }
@@ -31,7 +31,8 @@ impl Stack {
     pub fn push(&mut self, value: &Area) -> Result<(), Addr> {
         if self.pos >= self.len / core::mem::size_of::<Area>() {
             self.len += frame::FRAME_SIZE;
-            return Err(Addr::new(self.top as usize + self.len - frame::FRAME_SIZE));
+            return Err(Addr::new(self.top as usize + self.len - frame::FRAME_SIZE,
+                                 AddrType::Virtual));
         }
         unsafe {
             *(self.top.offset(self.pos as isize)) = *value;

@@ -1,4 +1,4 @@
-use crate::addr::Addr;
+use crate::addr::{Addr, AddrType};
 use crate::frame;
 
 #[derive(Debug, Copy, Clone)]
@@ -9,39 +9,41 @@ pub struct Area {
 
 pub struct AreaIter {
     pos: usize,
-    end: usize
+    end: usize,
+    addr_type: AddrType
 }
 
 impl Area {
-    pub const fn new(base: usize, len: usize) -> Area {
+    pub const fn new(base: usize, len: usize, addr_type: AddrType) -> Area {
         Area {
-            base: Addr::new(base),
+            base: Addr::new(base, addr_type),
             len: len
         }
     }
 
     pub fn pages(&self) -> AreaIter {
         AreaIter {
-            pos: self.base.bits.value,
-            end: self.base.bits.value + self.len
+            pos: self.base.addr,
+            end: self.base.addr + self.len,
+            addr_type: self.base.addr_type
         }
     }
 
     pub fn contains(&self, addr: &Addr) -> bool {
-        self.base.bits.value <= addr.bits.value
-            && self.base.bits.value + self.len > addr.bits.value
+        self.base.addr <= addr.addr
+            && self.base.addr + self.len > addr.addr
     }
 
     pub fn overlap(&self, other: &Area) -> bool {
         if other.len == 0 {
             return false;
         }
-        if self.base.bits.value <= other.base.bits.value
-            && self.base.bits.value + self.len > other.base.bits.value {
+        if self.base.addr <= other.base.addr
+            && self.base.addr + self.len > other.base.addr {
                 return true;
             }
-        if self.base.bits.value >= other.base.bits.value
-            && other.base.bits.value + other.len > self.base.bits.value {
+        if self.base.addr >= other.base.addr
+            && other.base.addr + other.len > self.base.addr {
                 return true;
             }
         return false;
@@ -55,7 +57,8 @@ impl Iterator for AreaIter {
         if self.pos >= self.end {
             return None;
         }
-        let addr = Addr::new(self.pos);
+        let mut addr = Addr::new(self.pos, self.addr_type);
+        addr.to_valid();
         self.pos += frame::FRAME_SIZE;
         Some(addr)
     }
@@ -69,13 +72,13 @@ impl core::cmp::PartialOrd for Area {
 
 impl core::cmp::Ord for Area {
     fn cmp(&self, other: &Area) -> core::cmp::Ordering {
-        self.base.bits.value.cmp(&other.base.bits.value)
+        self.base.addr.cmp(&other.base.addr)
     }
 }
 
 impl core::cmp::PartialEq for Area {
     fn eq(&self, other: &Area) -> bool {
-        self.base.bits.value == other.base.bits.value
+        self.base.addr == other.base.addr
     }
 }
 
