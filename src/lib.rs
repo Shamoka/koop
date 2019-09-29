@@ -3,6 +3,7 @@
 use core::panic::PanicInfo;
 use vga::println;
 use mem::allocator::ALLOCATOR;
+use mem::area;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -18,6 +19,9 @@ pub fn koop(mb2: usize) -> ! {
             panic!("Unable to init allocator stage 1 {:?}", error);
         }
     }
+    let area = area::Area::new(0o123_234_345_456_0000, 0xf000, mem::addr::AddrType::Virtual);
+    ALLOCATOR.lock().memmap(&area);
+    unsafe {*((area.base.addr + 42usize) as *mut u8) = 42;}
     println!("OK");
     loop {}
 }

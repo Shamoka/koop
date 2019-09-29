@@ -60,7 +60,7 @@ run:	$(ISO)
 release: RELEASE= --release
 release: $(ISO)
 
-run-debug:	debug
+run-debug:	$(ISO)
 	qemu-system-x86_64 -cdrom $(ISO) -s -S
 
 iso:	$(ISO)
