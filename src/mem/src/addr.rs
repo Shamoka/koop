@@ -3,7 +3,7 @@ use crate::bits::Bits;
 const PAGE_OFFSET_LEN: usize = 12;
 const TABLE_INDEX_LEN: usize = 9;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Addr {
     pub bits: Bits
 }

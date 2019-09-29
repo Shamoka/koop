@@ -1,11 +1,6 @@
 use crate::addr::Addr;
 use crate::frame;
 
-#[derive(Copy, Clone)]
-pub enum Alignment {
-    Page = 0x1000,
-}
-
 #[derive(Debug, Copy, Clone)]
 pub struct Area {
      pub base: Addr,
@@ -18,9 +13,9 @@ pub struct AreaIter {
 }
 
 impl Area {
-    pub const fn new(base: usize, len: usize, align: Alignment) -> Area {
+    pub const fn new(base: usize, len: usize) -> Area {
         Area {
-            base: Addr::new(base - base % align as usize),
+            base: Addr::new(base),
             len: len
         }
     }

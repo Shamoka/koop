@@ -5,22 +5,24 @@ use crate::addr::Addr;
 use crate::AllocError;
 use crate::area::Area;
 use crate::stack::Stack;
-use crate::allocator::PML4_ADDR;
-use crate::allocator::TMP_STACK_AREA;
+use crate::allocator::{PML4_ADDR, TMP_STACK_AREA, MEMORY_MAP_AREA};
 
 pub struct Allocator {
     frame_allocator: frame::Allocator,
     stack: Stack,
-    pml4: PML4
+    _map: Stack,
+    pml4: PML4,
+    _mb2: multiboot2::Info
 }
 
 impl Allocator {
     pub fn new(mb2: multiboot2::Info) -> Result<Allocator, AllocError> {
         let mut allocator = Allocator {
-            frame_allocator: frame::Allocator::new(mb2),
+            frame_allocator: frame::Allocator::new(&mb2),
+            _mb2: mb2,
             pml4: PML4::new(&PML4_ADDR),
-            stack: Stack::new(&TMP_STACK_AREA)
-
+            stack: Stack::new(&TMP_STACK_AREA),
+            _map: Stack::new(&MEMORY_MAP_AREA)
         };
         allocator.pml4.flush(1, 510);
         for page in TMP_STACK_AREA.pages() {

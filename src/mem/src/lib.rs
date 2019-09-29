@@ -20,5 +20,6 @@ pub enum AllocError {
     Uninitialized,
     InUse,
     InvalidAddr,
-    Forbidden
+    Forbidden,
+    InvalidInit
 }

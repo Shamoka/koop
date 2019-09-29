@@ -27,7 +27,7 @@ pub struct Allocator {
 }
 
 impl Allocator {
-    pub fn new(mb2: multiboot2::Info) -> Allocator {
+    pub fn new(mb2: &multiboot2::Info) -> Allocator {
         let kstart = mb2.get_elf_sections()
             .expect("No ELF section found in multiboot2 info")
             .map(|x| x.sh_addr)
