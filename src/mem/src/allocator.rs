@@ -7,7 +7,9 @@ use spinlock::Mutex;
 
 use core::cell::UnsafeCell;
 use core::marker::{Send, Sync};
+use core::alloc::{GlobalAlloc, Layout};
 
+#[global_allocator]
 pub static ALLOCATOR: Allocator = Allocator::new();
 
 pub const TMP_STACK_AREA: Area = Area::new(0o000000_001_000_000_000_0000, 0x1000, AddrType::Virtual);
@@ -65,3 +67,12 @@ impl Allocator {
 
 unsafe impl Send for Allocator {}
 unsafe impl Sync for Allocator {}
+
+unsafe impl GlobalAlloc for Allocator {
+    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
+        0 as *mut u8
+    }
+
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
+    }
+}
