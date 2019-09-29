@@ -15,13 +15,15 @@ fn panic(info: &PanicInfo) -> ! {
 pub fn koop(mb2: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
     unsafe {
-        if let Err(error) = ALLOCATOR.lock().stage1(multiboot2::Info::new(mb2)) {
+        if let Err(error) = ALLOCATOR.init(multiboot2::Info::new(mb2)) {
             panic!("Unable to init allocator stage 1 {:?}", error);
         }
+        let area = area::Area::new(0o123_234_345_456_0000, 0xf000, mem::addr::AddrType::Virtual);
+        if let Err(error) = ALLOCATOR.memmap(&area) {
+            panic!("Allocation error {:?}", error);
+        }
+        *((area.base.addr + 42usize) as *mut u8) = 42;
     }
-    let area = area::Area::new(0o123_234_345_456_0000, 0xf000, mem::addr::AddrType::Virtual);
-    ALLOCATOR.lock().memmap(&area);
-    unsafe {*((area.base.addr + 42usize) as *mut u8) = 42;}
     println!("OK");
     loop {}
 }
