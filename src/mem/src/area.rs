@@ -1,4 +1,4 @@
-use crate::addr::{Addr, AddrType};
+use crate::addr::Addr;
 use crate::frame;
 
 #[derive(Debug, Copy, Clone)]
@@ -10,13 +10,12 @@ pub struct Area {
 pub struct AreaIter {
     pos: usize,
     end: usize,
-    addr_type: AddrType
 }
 
 impl Area {
-    pub const fn new(base: usize, len: usize, addr_type: AddrType) -> Area {
+    pub const fn new(base: usize, len: usize) -> Area {
         Area {
-            base: Addr::new(base, addr_type),
+            base: Addr::new(base),
             len: len
         }
     }
@@ -25,13 +24,21 @@ impl Area {
         AreaIter {
             pos: self.base.addr,
             end: self.base.addr + self.len,
-            addr_type: self.base.addr_type
         }
     }
 
     pub fn contains(&self, addr: &Addr) -> bool {
         self.base.addr <= addr.addr
             && self.base.addr + self.len > addr.addr
+    }
+
+    pub fn split(&mut self, size: usize) -> Option<Area> {
+        if self.len < size {
+            return None;
+        }
+        let new_area = Area::new(self.base.addr + self.len - size, size);
+        self.len -= size;
+        Some(new_area)
     }
 
     pub fn overlap(&self, other: &Area) -> bool {
@@ -57,7 +64,7 @@ impl Iterator for AreaIter {
         if self.pos >= self.end {
             return None;
         }
-        let mut addr = Addr::new(self.pos, self.addr_type);
+        let mut addr = Addr::new(self.pos);
         addr.to_valid();
         self.pos += frame::FRAME_SIZE;
         Some(addr)

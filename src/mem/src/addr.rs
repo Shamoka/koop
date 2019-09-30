@@ -1,22 +1,14 @@
 use core::cmp::PartialEq;
 
 #[derive(Debug, Copy, Clone)]
-pub enum AddrType {
-    Physical,
-    Virtual
-}
-
-#[derive(Debug, Copy, Clone)]
 pub struct Addr {
     pub addr: usize,
-    pub addr_type: AddrType
 }
 
 impl Addr {
-    pub const fn new(value: usize, addr_type: AddrType) -> Addr {
+    pub const fn new(value: usize) -> Addr {
         Addr {
             addr: value,
-            addr_type: addr_type
         }
     }
 
@@ -36,32 +28,22 @@ impl Addr {
         } else {
             addr |= 0o177777_000_000_000_000_0000;
         }
-        Addr::new(addr, AddrType::Virtual)
+        Addr::new(addr)
     }
 
     pub fn is_valid(&self) -> bool {
-        match self.addr_type {
-            AddrType::Virtual => {
-                if self.addr & (1 << 47) == 0 {
-                    self.addr & 0o177777_000_000_000_000_0000 == 0
-                } else {
-                    self.addr & 0o177777_000_000_000_000_0000 == 0o177777_000_000_000_000_0000
-                }
-            },
-            AddrType::Physical => false
+        if self.addr & (1 << 47) == 0 {
+            self.addr & 0o177777_000_000_000_000_0000 == 0
+        } else {
+            self.addr & 0o177777_000_000_000_000_0000 == 0o177777_000_000_000_000_0000
         }
     }
 
     pub fn to_valid(&mut self) {
-        match self.addr_type {
-            AddrType::Virtual => {
-                if self.addr & (1 << 47) == 0 {
-                    self.addr &= 0o000000_777_777_777_777_7777;
-                } else {
-                    self.addr |= 0o177777_000_000_000_000_0000;
-                }
-            },
-            AddrType::Physical => {}
+        if self.addr & (1 << 47) == 0 {
+            self.addr &= 0o000000_777_777_777_777_7777;
+        } else {
+            self.addr |= 0o177777_000_000_000_000_0000;
         }
     }
 }

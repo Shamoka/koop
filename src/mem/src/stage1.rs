@@ -3,15 +3,17 @@ use crate::table::{PML4, TableLevel};
 use crate::AllocError;
 use crate::area::Area;
 use crate::allocator::PML4_ADDR;
-use crate::addr::{AddrType, Addr};
+use crate::addr::Addr;
 use crate::entry;
 use crate::entry::Entry;
 use crate::UPPER_MEMORY_BOUND;
 
-const NEW_PML4: Addr = Addr::new(0xdeadbeef000, AddrType::Virtual);
+const NEW_PML4: Addr = Addr::new(0xdeadbeef000);
+const ALLOC_AREA: Area = Area::new(0o177777_042_000_000_000_0000, 0o001_000_000_000_0000);
 
 pub struct Allocator {
     frame_allocator: frame::Allocator,
+    alloc_area: Area,
     pml4: PML4
 }
 
@@ -19,6 +21,7 @@ impl Allocator {
     pub fn new(mb2: multiboot2::Info) -> Result<Allocator, AllocError> {
         let mut allocator = Allocator {
             frame_allocator: frame::Allocator::new(mb2),
+            alloc_area: ALLOC_AREA,
             pml4: PML4::new(&PML4_ADDR, 511),
         };
         let (new_pml4, pml4_frame) = match allocator.create_new_pml4() {
@@ -40,6 +43,30 @@ impl Allocator {
         }
         allocator.pml4 = new_pml4;
         Ok(allocator)
+    }
+
+    pub fn memalloc(&mut self, len: usize) -> Result<*mut u8, AllocError> {
+        if len > self.alloc_area.len {
+            return Err(AllocError::OutOfMemory);
+        }
+        let area = Area::new(self.alloc_area.base.addr, len);
+        for page in area.pages() {
+            match self.frame_allocator.alloc() {
+                Ok(frame) => {
+                    if let Err(error) = 
+                        self.pml4.map_frame(&page,
+                                            Entry::new(frame.base.addr,
+                                                       entry::FLAG_PRESENT | entry::FLAG_WRITABLE),
+                                                       &mut self.frame_allocator) {
+                            return Err(error);
+                }
+                },
+                Err(error) => return Err(error)
+            }
+        }
+        self.alloc_area.base.addr += len;
+        self.alloc_area.len -= len;
+        Ok(area.base.addr as *mut u8)
     }
 
     fn create_new_pml4(&mut self) -> Result<(PML4, frame::Frame), AllocError> {
@@ -67,7 +94,7 @@ impl Allocator {
 
     fn remap_kernel(&mut self, mut new_pml4: PML4) -> Result<(), AllocError> {
         for section in self.frame_allocator.mb2.get_elf_sections().unwrap() {
-            let area = Area::new(section.sh_addr, section.sh_size, AddrType::Virtual);
+            let area = Area::new(section.sh_addr, section.sh_size);
             for addr in area.pages() {
                 if let Err(error) = 
                     new_pml4.map_frame(&addr,
@@ -81,16 +108,16 @@ impl Allocator {
     }
 
     fn remap_low_memory(&mut self, mut new_pml4: PML4) -> Result<(), AllocError> {
-            let area = Area::new(0, UPPER_MEMORY_BOUND, AddrType::Virtual);
-            for addr in area.pages() {
-                if let Err(error) = 
-                    new_pml4.map_frame(&addr,
-                                       Entry::new(addr.addr,
-                                                  entry::FLAG_PRESENT | entry::FLAG_WRITABLE),
-                                                  &mut self.frame_allocator) {
-                        return Err(error);
-                    }
-            }
+        let area = Area::new(0, UPPER_MEMORY_BOUND);
+        for addr in area.pages() {
+            if let Err(error) = 
+                new_pml4.map_frame(&addr,
+                                   Entry::new(addr.addr,
+                                              entry::FLAG_PRESENT | entry::FLAG_WRITABLE),
+                                              &mut self.frame_allocator) {
+                    return Err(error);
+                }
+        }
         Ok(())
     }
 }

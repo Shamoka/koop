@@ -1,4 +1,4 @@
-use crate::addr::{Addr, AddrType};
+use crate::addr::Addr;
 use crate::AllocError;
 
 use multiboot2;
@@ -13,7 +13,7 @@ pub struct Frame {
 impl Frame {
     pub fn new(value: usize) -> Frame {
         let mut frame = Frame {
-            base: Addr::new(value, AddrType::Physical)
+            base: Addr::new(value),
         };
         frame.align();
         frame
@@ -49,7 +49,7 @@ impl Allocator {
             kernel_start: kstart as usize,
             kernel_end: kend as usize,
             memory_size: mem_size as usize,
-            free_base: Addr::new(super::UPPER_MEMORY_BOUND, AddrType::Physical),
+            free_base: Addr::new(super::UPPER_MEMORY_BOUND),
             mb2: mb2
         }
     }

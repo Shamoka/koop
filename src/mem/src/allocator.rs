@@ -1,6 +1,6 @@
 use crate::AllocError;
 use crate::stage1;
-use crate::addr::{Addr, AddrType};
+use crate::addr::Addr;
 
 use spinlock::Mutex;
 
@@ -11,14 +11,14 @@ use core::alloc::{GlobalAlloc, Layout};
 #[global_allocator]
 pub static ALLOCATOR: Allocator = Allocator::new();
 
-pub const PML4_ADDR: Addr = Addr::new(0xffff_ffff_ffff_f000, AddrType::Virtual);
+pub const PML4_ADDR: Addr = Addr::new(0xffff_ffff_ffff_f000);
 
 pub struct Allocator {
     internal: UnsafeCell<Stage>,
     mutex: Mutex<()>
 }
 
-enum Stage {
+pub enum Stage {
     Stage0,
     Stage1(stage1::Allocator)
 }
