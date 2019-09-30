@@ -1,6 +1,6 @@
 #![no_std]
 
-use mmio;
+use asm::x86_64::mmio;
 
 #[repr(u16)]
 #[derive(Copy, Clone)]
@@ -22,14 +22,14 @@ pub struct Port {
 impl Port {
     pub unsafe fn new(port: ComAddr) -> Port {
         let serial = Port {
-            data: mmio::Port::new(port as u16),
-            irq_enable: mmio::Port::new(port as u16 + 1),
-            irq_id: mmio::Port::new(port as u16 + 2),
-            line_control: mmio::Port::new(port as u16 + 3),
-            modem_control: mmio::Port::new(port as u16 + 4),
-            line_status: mmio::Port::new(port as u16 + 5),
-            _modem_status: mmio::Port::new(port as u16 + 6),
-            _scratch: mmio::Port::new(port as u16 + 7)
+            data: mmio::Port::new(port as usize),
+            irq_enable: mmio::Port::new(port as usize + 1),
+            irq_id: mmio::Port::new(port as usize + 2),
+            line_control: mmio::Port::new(port as usize + 3),
+            modem_control: mmio::Port::new(port as usize + 4),
+            line_status: mmio::Port::new(port as usize + 5),
+            _modem_status: mmio::Port::new(port as usize + 6),
+            _scratch: mmio::Port::new(port as usize + 7)
         };
         serial.init();
         serial
