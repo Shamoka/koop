@@ -1,12 +1,11 @@
 #![no_std]
-#![feature(allocator_api)]
+#![feature(asm)]
 
 const UPPER_MEMORY_BOUND: usize = 1 << 20;
 
 mod frame;
 mod table;
 mod entry;
-mod stack;
 mod stage1;
 
 pub mod addr;

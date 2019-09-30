@@ -1,4 +1,5 @@
 use crate::addr::{Addr, AddrType};
+use crate::AllocError;
 
 use multiboot2;
 
@@ -28,10 +29,11 @@ pub struct Allocator {
     kernel_end: usize,
     memory_size: usize,
     free_base: Addr,
+    pub mb2: multiboot2::Info
 }
 
 impl Allocator {
-    pub fn new(mb2: &multiboot2::Info) -> Allocator {
+    pub fn new(mb2: multiboot2::Info) -> Allocator {
         let kstart = mb2.get_elf_sections()
             .expect("No ELF section found in multiboot2 info")
             .map(|x| x.sh_addr)
@@ -47,11 +49,12 @@ impl Allocator {
             kernel_start: kstart as usize,
             kernel_end: kend as usize,
             memory_size: mem_size as usize,
-            free_base: Addr::new(super::UPPER_MEMORY_BOUND, AddrType::Physical)
+            free_base: Addr::new(super::UPPER_MEMORY_BOUND, AddrType::Physical),
+            mb2: mb2
         }
     }
 
-    pub fn alloc(&mut self) -> Option<Frame> {
+    pub fn alloc(&mut self) -> Result<Frame, AllocError> {
         loop {
             let frame = Frame::new(self.free_base.addr);
             self.free_base.addr += FRAME_SIZE;
@@ -60,9 +63,9 @@ impl Allocator {
             } else if frame.base.addr < super::UPPER_MEMORY_BOUND {
                 continue;
             } else if frame.base.addr > self.memory_size {
-                return None;
+                return Err(AllocError::OutOfMemory);
             } else {
-                return Some(frame);
+                return Ok(frame);
             }
         }
     }

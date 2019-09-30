@@ -1,22 +1,25 @@
 use crate::addr::Addr;
-use crate::entry;
 use crate::entry::Entry;
+use crate::entry;
 use crate::frame;
 use crate::AllocError;
 
 pub trait TableLevel {
     type DownLevel: TableLevel;
 
-    fn map_addr(&mut self,
-                addr: &Addr,
-                frame_allocator: &mut frame::Allocator)
+    fn map_frame(&mut self,
+                 addr: &Addr,
+                 entry: Entry,
+                 frame_allocator: &mut frame::Allocator)
         -> Result<(), AllocError>;
 }
 
 macro_rules! table_struct {
     ($T:tt) => {
+        #[derive(Copy, Clone)]
         pub struct $T {
             entries: *mut [usize; 512],
+            pub base: usize,
             level: usize
         }
     }
@@ -25,10 +28,11 @@ macro_rules! table_struct {
 macro_rules! impl_table {
     ($T:tt, $level: literal) => {
         impl $T{
-            pub fn new(addr: &Addr) -> $T {
+            pub fn new(addr: &Addr, base: usize) -> $T {
                 $T {
+                    base: base,
                     entries: addr.addr as *mut [usize; 512],
-                    level: $level
+                    level: $level,
                 }
             }
 
@@ -40,22 +44,11 @@ macro_rules! impl_table {
                 }
             }
 
-            pub fn set_entry(&mut self,
-                             i: usize, 
-                             frame_allocator: &mut frame::Allocator)
-                -> Result<(), AllocError> {
-                    match frame_allocator.alloc() {
-                        Some(frame) => {
-                            let new_entry = Entry::new(frame.base.addr,
-                                                       entry::FLAG_WRITABLE | entry::FLAG_PRESENT);
-                            unsafe {
-                                (*self.entries)[i] = new_entry.value();
-                            }
-                            Ok(())
-                        },
-                        None => Err(AllocError::OutOfMemory)
-                    }
+            pub fn set_entry(&mut self, i: usize, entry: Entry) {
+                unsafe {
+                    (*self.entries)[i] = entry.value();
                 }
+            }
         }
     }
 }
@@ -65,24 +58,31 @@ macro_rules! impl_table_level {
         impl TableLevel for $T {
             type DownLevel = $U;
 
-            fn map_addr(&mut self, 
-                        addr: &Addr,
-                        frame_allocator: &mut frame::Allocator)
+            fn map_frame(&mut self, 
+                         addr: &Addr,
+                         entry: Entry,
+                         frame_allocator: &mut frame::Allocator)
                 -> Result<(), AllocError> {
                     let i = addr.get_table_index(self.level);
-                    let entry = unsafe { Entry::from_entry((*self.entries)[i]) };
+                    let current_entry = unsafe { Entry::from_entry((*self.entries)[i]) };
                     let mut do_flush = false;
-                    if entry.unused() {
+                    if current_entry.unused() {
                         do_flush = true;
-                        if let Err(some_error) = self.set_entry(i, frame_allocator) {
-                            return Err(some_error);
-                        }
+                        match frame_allocator.alloc() {
+                            Ok(table_frame) => {
+                                self.set_entry(i, Entry::new(table_frame.base.addr,
+                                                             entry::FLAG_WRITABLE
+                                                             | entry::FLAG_PRESENT));
+                            },
+                            Err(error) => return Err(error)
+                        };
                     }
-                    let mut down_level = Self::DownLevel::new(&addr.get_table_addr(self.level - 1));
+                    let mut down_level = Self::DownLevel::new(
+                        &addr.get_table_addr(self.level - 1, self.base), self.base);
                     if do_flush {
                         down_level.flush(0, 511);
                     }
-                    down_level.map_addr(addr, frame_allocator)
+                    down_level.map_frame(addr, entry, frame_allocator)
                 }
         }
     };
@@ -90,14 +90,18 @@ macro_rules! impl_table_level {
         impl TableLevel for $T {
             type DownLevel = $T;
 
-            fn map_addr(&mut self, 
-                        addr: &Addr,
-                        frame_allocator: &mut frame::Allocator)
+            fn map_frame(&mut self, 
+                         addr: &Addr,
+                         entry: Entry,
+                         _frame_allocator: &mut frame::Allocator)
                 -> Result<(), AllocError> {
                     let i = addr.get_table_index(self.level);
-                    let entry = unsafe { Entry::from_entry((*self.entries)[i]) };
-                    match entry.unused() {
-                        true => self.set_entry(i, frame_allocator),
+                    let current_entry = unsafe { Entry::from_entry((*self.entries)[i]) };
+                    match current_entry.unused() {
+                        true => {
+                            self.set_entry(i, entry);
+                            Ok(())
+                        }
                         false => Err(AllocError::InUse)
                     }
                 }

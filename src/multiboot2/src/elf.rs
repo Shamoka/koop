@@ -1,3 +1,7 @@
+pub const SHF_WRITE: usize = 0x1;
+pub const SHF_ALLOC: usize = 0x2;
+pub const SHF_EXECINSTR: usize = 0x4;
+
 pub struct Header {
     addr: usize,
     num: u32,
@@ -12,10 +16,10 @@ pub struct SectionIter {
 }
 
 pub struct Section {
-    pub sh_type: u64,
-    pub sh_flags: u64,
-    pub sh_addr: u64,
-    pub sh_size: u64
+    pub sh_type: usize,
+    pub sh_flags: usize,
+    pub sh_addr: usize,
+    pub sh_size: usize
 }
 
 impl Header {
@@ -47,14 +51,14 @@ impl Iterator for SectionIter {
              true => {
                 unsafe {
                     let section = Section {
-                        sh_type: *((self.addr + 0x04) as *const u64),
-                        sh_flags: *((self.addr + 0x08) as *const u64),
-                        sh_addr: *((self.addr + 0x10) as *const u64),
-                        sh_size: *((self.addr + 0x20) as *const u64)
+                        sh_type: *((self.addr + 0x04) as *const usize),
+                        sh_flags: *((self.addr + 0x08) as *const usize),
+                        sh_addr: *((self.addr + 0x10) as *const usize),
+                        sh_size: *((self.addr + 0x20) as *const usize)
                     };
                     self.count -= 1;
                     self.addr += self.entsize as usize;
-                    match section.sh_type {
+                    match section.sh_flags {
                         0x00 => self.next(),
                         _ => Some(section)
                     }

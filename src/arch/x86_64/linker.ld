@@ -22,7 +22,7 @@ SECTIONS
 		. = ALIGN(4K);
 	}
 
-	.data.rel.ro :
+	.data.rel.ro : ALIGN(4K)
 	{
 		*(.data.rel.ro .data.rel.ro*)
 		. = ALIGN(4K);

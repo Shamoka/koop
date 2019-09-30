@@ -1,7 +1,6 @@
-use crate::addr::{Addr, AddrType};
 use crate::AllocError;
-use crate::area::Area;
 use crate::stage1;
+use crate::addr::{Addr, AddrType};
 
 use spinlock::Mutex;
 
@@ -12,8 +11,6 @@ use core::alloc::{GlobalAlloc, Layout};
 #[global_allocator]
 pub static ALLOCATOR: Allocator = Allocator::new();
 
-pub const TMP_STACK_AREA: Area = Area::new(0o000000_001_000_000_000_0000, 0x1000, AddrType::Virtual);
-pub const MEMORY_MAP_AREA: Area = Area::new(0o000000_002_000_000_000_0000, 0x1000, AddrType::Virtual);
 pub const PML4_ADDR: Addr = Addr::new(0xffff_ffff_ffff_f000, AddrType::Virtual);
 
 pub struct Allocator {
@@ -31,14 +28,6 @@ impl Allocator {
         Allocator {
             internal: UnsafeCell::new(Stage::Stage0),
             mutex: Mutex::new(())
-        }
-    }
-
-    pub unsafe fn memmap(&self, area: &Area) -> Result<(), AllocError> {
-        let _lock = self.mutex.lock();
-        match &mut *self.internal.get() {
-            Stage::Stage0 => Err(AllocError::Uninitialized),
-            Stage::Stage1(allocator) => allocator.memmap(area),
         }
     }
 

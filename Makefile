@@ -42,7 +42,7 @@ all:		$(KERNEL)
 
 $(KERNEL): 	$(OBJ) $(LD_SCRIPT) cargo
 	mkdir -p $(KERNELDIR)
-	$(LD) -n -T $(LD_SCRIPT) -o $(KERNEL) $(OBJ) $(RUST_LIB)
+	$(LD) --strip-debug -n -T $(LD_SCRIPT) -o $(KERNEL) $(OBJ) $(RUST_LIB)
 
 cargo:
 	cargo +nightly xbuild $(RELEASE) --target $(ASMDIR)/koop.json
@@ -61,7 +61,7 @@ release: RELEASE= --release
 release: $(ISO)
 
 run-debug:	$(ISO)
-	qemu-system-x86_64 -cdrom $(ISO) -s -S
+	qemu-system-x86_64 -cdrom $(ISO) -s -S -d int -no-reboot
 
 iso:	$(ISO)
 

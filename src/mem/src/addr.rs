@@ -1,3 +1,5 @@
+use core::cmp::PartialEq;
+
 #[derive(Debug, Copy, Clone)]
 pub enum AddrType {
     Physical,
@@ -22,16 +24,17 @@ impl Addr {
         (self.addr & (0o777 << (12 + 9 * (level - 1)))) >> (12 + 9 * (level - 1))
     }
 
-    pub fn get_table_addr(&self, level: usize) -> Addr {
-        let mut addr = self.addr;
-        addr |= 0o177777_000_000_000_000_0000;
+    pub fn get_table_addr(&self, level: usize, base: usize) -> Addr {
+        let mut addr = self.addr & 0o000000_777_777_777_777_0000;
         for _ in 0..level {
+            addr |= base << 48;
             addr >>= 9;
             addr &= !0xfff;
-            addr |= 0o177777_000_000_000_000_0000;
         }
         if addr & (1 << 47) == 0 {
             addr &= 0o000000_777_777_777_777_0000;
+        } else {
+            addr |= 0o177777_000_000_000_000_0000;
         }
         Addr::new(addr, AddrType::Virtual)
     }
@@ -60,5 +63,11 @@ impl Addr {
             },
             AddrType::Physical => {}
         }
+    }
+}
+
+impl PartialEq for Addr {
+    fn eq(&self, other: &Addr) -> bool {
+        self.addr == other.addr
     }
 }

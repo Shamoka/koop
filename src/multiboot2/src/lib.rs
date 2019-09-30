@@ -2,7 +2,7 @@
 
 mod basic_mem_info;
 mod mem_map;
-mod elf;
+pub mod elf;
 
 pub struct Info {
     pub base: usize,
