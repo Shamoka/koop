@@ -1,5 +1,6 @@
 use crate::AllocError;
 use crate::stage1;
+use crate::stage2;
 use crate::addr::Addr;
 
 use spinlock::Mutex;
@@ -20,7 +21,8 @@ pub struct Allocator {
 
 pub enum Stage {
     Stage0,
-    Stage1(stage1::Allocator)
+    Stage1(stage1::Allocator),
+    Stage2(stage2::Allocator)
 }
 
 impl Allocator {
@@ -34,20 +36,21 @@ impl Allocator {
     pub unsafe fn init(&self, mb2: multiboot2::Info) -> Result<(), AllocError> {
         let _lock = self.mutex.lock();
         match &mut *self.internal.get() {
-            Stage::Stage0 => {
-                self.stage1(mb2)
-            }
-            Stage::Stage1(_allocator) => {
-                Err(AllocError::InvalidInit)
-            }
+            Stage::Stage0 => self._init(mb2),
+            _ => Err(AllocError::InvalidInit)
         }
     }
 
-    unsafe fn stage1(&self, mb2: multiboot2::Info) -> Result<(), AllocError> {
+    unsafe fn _init(&self, mb2: multiboot2::Info) -> Result<(), AllocError> {
         match stage1::Allocator::new(mb2) {
-            Ok(allocator) => {
-                *self.internal.get() = Stage::Stage1(allocator);
-                Ok(())
+            Ok(mut s1_allocator) => {
+                match stage2::Allocator::new(s1_allocator) {
+                    Ok(s2_allocator) => {
+                        *self.internal.get() = Stage::Stage2(s2_allocator);
+                        Ok(())
+                    },
+                    Err(error) => Err(error)
+                }
             },
             Err(error) => Err(error)
         }

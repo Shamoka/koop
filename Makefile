@@ -45,6 +45,7 @@ $(KERNEL): 	$(OBJ) $(LD_SCRIPT) cargo
 	$(LD) --strip-debug -n -T $(LD_SCRIPT) -o $(KERNEL) $(OBJ) $(RUST_LIB)
 
 cargo:
+	cargo-fmt
 	cargo +nightly xbuild $(RELEASE) --target $(ASMDIR)/koop.json
 
 $(ISO):		$(KERNEL) $(GRUBDIR)/$(GRUB_CFG)

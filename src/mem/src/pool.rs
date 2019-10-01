@@ -54,6 +54,11 @@ impl<T: Sized> Pool<T> {
         }
     }
 
+    pub unsafe fn give_elem(&mut self, elem: *mut Node<T>) {
+        (*elem).next = self.root;
+        self.root = Some(elem);
+    }
+
     pub fn fulfill_request(&mut self, area: &Area) -> PoolResult<T> {
         match self.request {
             Some(request) => {

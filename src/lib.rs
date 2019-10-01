@@ -1,8 +1,8 @@
 #![no_std]
 
 use core::panic::PanicInfo;
-use vga::println;
 use mem::allocator::ALLOCATOR;
+use vga::println;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -13,10 +13,9 @@ fn panic(info: &PanicInfo) -> ! {
 #[no_mangle]
 pub fn koop(mb2: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
-    unsafe {
-        if let Err(error) = ALLOCATOR.init(multiboot2::Info::new(mb2)) {
-            panic!("Unable to init allocator stage 1 {:?}", error);
-        }
+    println!("OK");
+    for block in mem::block::Block::from_memory_bounds(1 << 20, 1 << 32) {
+        println!("{:x} {:x}", block.order, block.addr);
     }
     println!("OK");
     loop {}

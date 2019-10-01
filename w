@@ -110,7 +110,7 @@ impl Node {
     }
 
     pub unsafe fn find(&mut self, target: &Area) -> Option<*mut Node> {
-        match self.content.cmp(target) {
+        match self.content.cmp(area) {
             Ordering::Less => {
                 match self.left {
                     Some(ptr) => (*ptr).find(target),
@@ -123,7 +123,7 @@ impl Node {
                     None => None
                 }
             }
-            Ordering::Equal => Some(self as *mut Node)
+            Ordering::Equal => self as *mut Node
         }
     }
 
