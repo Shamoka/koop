@@ -18,25 +18,15 @@ impl Block {
         1 << self.order
     }
 
-    pub fn split(&mut self, area: &Area) -> Option<Block> {
+    pub fn split(&mut self) -> Option<Block> {
         if self.order == 0 {
             return None;
         }
         self.order -= 1;
-        let new_block_size = self.size();
-        if area.base.addr < self.addr + new_block_size {
-            let ret = Some(Block {
-                order: self.order,
-                addr: self.addr
-            });
-            self.addr += new_block_size;
-            ret
-        } else {
-            Some(Block {
-                order: self.order,
-                addr: self.addr + new_block_size
-            })
-        }
+        Some(Block {
+            order: self.order,
+            addr: self.addr + self.size()
+        })
     }
 
     pub fn contains(&self, area: &Area) -> bool {

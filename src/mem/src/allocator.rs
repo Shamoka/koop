@@ -55,6 +55,14 @@ impl Allocator {
             Err(error) => Err(error)
         }
     }
+
+    pub unsafe fn memalloc(&self, len: usize) -> *mut u8 {
+        let _lock = self.mutex.lock();
+        match &mut *self.internal.get() {
+            Stage::Stage2(allocator) => allocator.alloc(len),
+            _ => 0 as *mut u8
+        }
+    }
 }
 
 unsafe impl Send for Allocator {}

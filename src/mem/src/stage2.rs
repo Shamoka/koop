@@ -17,7 +17,7 @@ pub struct Allocator {
 }
 
 impl Allocator {
-    pub fn new(mut stage1: stage1::Allocator) -> Result<Allocator, AllocError> {
+    pub fn new(stage1: stage1::Allocator) -> Result<Allocator, AllocError> {
         let mut allocator = Allocator {
             internal: stage1,
             buddies: [MemTree::new(); BUCKETS],
@@ -38,23 +38,37 @@ impl Allocator {
         }
         let order = self.get_order(len);
         if BUCKETS - order > self.stock_count {
-            if self.alloc_nodes(BUCKETS - order + 1) == false {
+            if let Err(_) = self.alloc_nodes(BUCKETS - order + 1) {
                 return 0 as *mut u8;
             }
         }
-        0 as *mut u8
-    }
-
-    fn alloc_nodes(&mut self, nb_nodes: usize) -> bool {
-        while self.stock_count < nb_nodes {
-            if self.alloc_nodes_recurse(self.mem_tree_node_order) == false {
-                return false;
-            }
+        match self.alloc_recurse(order) {
+            Ok(block) => block.addr as *mut u8,
+            Err(_) => 0 as *mut u8
         }
-        true
     }
 
-    fn alloc_nodes_recurse(&mut self, order: usize) -> bool {
+    fn alloc_nodes(&mut self, nb_nodes: usize) -> Result<(), AllocError> {
+        while self.stock_count < nb_nodes {
+            match self.alloc_recurse(self.mem_tree_node_order)  {
+                Ok(block) => {
+                    let node = block.addr as *mut MemTreeNode;
+                    unsafe {
+                        (*node).left = self.stock;
+                    }
+                    self.stock = Some(node);
+                    self.stock_count += 1;
+                },
+                Err(error) => return Err(error)
+            };
+        }
+        Ok(())
+    }
+
+    fn alloc_recurse(&mut self, order: usize) -> Result<Block, AllocError> {
+        if order >= BUCKETS {
+            return Err(AllocError::OutOfMemory);
+        }
         match self.buddies[order].take() {
             (block, node) => {
                 if let Some(value) = node {
@@ -65,31 +79,31 @@ impl Allocator {
                     self.stock_count += 1;
                 }
                 match block {
-                    Some(value) => {
-                        if order == 12 {
-                            self.internal.map(&Area::new(value.addr, value.size()));
-                        }
-                        if order > self.mem_tree_node_order {
-                            self.buddies[order - 1].root = Some(MemTreeNode::new(&value));
-                        } else {
-                            let new_node = value.addr as *mut MemTreeNode;
-                            unsafe {
-                                (*new_node).left = self.stock;
-                            }
-                            self.stock = Some(new_node);
-                            self.stock_count += 1;
-                        }
-                        return true;
-                    },
+                    Some(value) => self.handle_new_block(value, order),
                     None => {
-                        if self.alloc_nodes_recurse(order + 1) {
-                            return self.alloc_nodes_recurse(order);
+                        match self.alloc_recurse(order + 1) {
+                            Ok(new_block) => self.handle_new_block(new_block, order),
+                            Err(error) => return Err(error)
                         }
                     }
                 }
             }
         }
-        false
+    }
+
+    fn handle_new_block(&mut self, mut block: Block, order: usize) -> Result<Block, AllocError> {
+        match block.split() {
+            Some(new_block) => {
+                self.buddies[order - 1].root = Some(MemTreeNode::new(&new_block));
+                if order == 12 {
+                    if let Err(_) = self.internal.map(&Area::new(block.addr, block.size())) {
+                        return self.alloc_recurse(order + 1);
+                    }
+                }
+                return Ok(block);
+            },
+            None => return Err(AllocError::OutOfMemory)
+        }
     }
 
     fn get_order(&self, len: usize) -> usize {
