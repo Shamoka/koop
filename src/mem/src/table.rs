@@ -12,8 +12,6 @@ pub trait TableLevel {
                  entry: Entry,
                  frame_allocator: &mut frame::Allocator)
         -> Result<(), AllocError>;
-
-    fn is_mapped(&mut self, addr: &Addr) -> bool;
 }
 
 macro_rules! table_struct {
@@ -86,17 +84,6 @@ macro_rules! impl_table_level {
                     }
                     down_level.map_frame(addr, entry, frame_allocator)
                 }
-
-            fn is_mapped(&mut self, addr: &Addr) -> bool {
-                let i = addr.get_table_index(self.level);
-                let current_entry = unsafe { Entry::from_entry((*self.entries)[i]) };
-                if current_entry.unused() == false {
-                    return false;
-                }
-                let mut down_level = Self::DownLevel::new(
-                    &addr.get_table_addr(self.level - 1, self.base), self.base);
-                down_level.is_mapped(addr)
-            }
         }
     };
     ($T:tt) => {
@@ -117,12 +104,6 @@ macro_rules! impl_table_level {
                         }
                         false => Err(AllocError::InUse)
                     }
-            }
-
-            fn is_mapped(&mut self, addr: &Addr) -> bool {
-                let i = addr.get_table_index(self.level);
-                let current_entry = unsafe { Entry::from_entry((*self.entries)[i]) };
-                current_entry.unused()
             }
         }
     };

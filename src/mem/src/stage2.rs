@@ -66,10 +66,18 @@ impl Allocator {
                 }
                 match block {
                     Some(value) => {
+                        if order == 12 {
+                            self.internal.map(&Area::new(value.addr, value.size()));
+                        }
                         if order > self.mem_tree_node_order {
                             self.buddies[order - 1].root = Some(MemTreeNode::new(&value));
                         } else {
-                            self.internal.try_map(&Area::new(value.addr, value.size()));
+                            let new_node = value.addr as *mut MemTreeNode;
+                            unsafe {
+                                (*new_node).left = self.stock;
+                            }
+                            self.stock = Some(new_node);
+                            self.stock_count += 1;
                         }
                         return true;
                     },
