@@ -3,7 +3,7 @@ use crate::area::Area;
 
 #[derive(Copy, Clone)]
 pub struct MemTree {
-    pub root: Option<*mut MemTreeNode>
+    pub root: Option<MemTreeNode>
 }
 
 pub enum InsertResult {
@@ -12,7 +12,7 @@ pub enum InsertResult {
     Error
 }
 
-#[derive(PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 enum Color {
     Red,
     Black
@@ -24,9 +24,10 @@ enum Child {
     None
 }
 
+#[derive(Copy, Clone)]
 pub struct MemTreeNode {
     pub content: Block,
-    left: Option<*mut MemTreeNode>,
+    pub left: Option<*mut MemTreeNode>,
     right: Option<*mut MemTreeNode>,
     parent: Option<*mut MemTreeNode>,
     color: Color
@@ -34,20 +35,55 @@ pub struct MemTreeNode {
 
 impl MemTree {
     pub const fn new() -> MemTree {
-        MemTree {
-            root: None
+        MemTree { root: None }
+    }
+
+    pub fn new_init(block: &Block) -> MemTree {
+        MemTree { root: Some(MemTreeNode::new(block)) }
+    }
+
+    pub fn take(&mut self) -> (Option<Block>, Option<*mut MemTreeNode>) {
+        unsafe {
+            match self.root {
+                Some(ref mut root) => {
+                    if root.left.is_none() && root.right.is_none() {
+                        match self.root.take() {
+                            Some(node) => return (Some(node.content), None),
+                            None => return (None, None)
+                        }
+                    }
+                    match root.left {
+                        Some(left) => {
+                            let content = (*left).content;
+                            (*left).remove();
+                            return (Some(content), Some(left));
+                        }
+                        None => ()
+                    };
+                    match root.right {
+                        Some(right) => {
+                            let content = (*right).content;
+                            (*right).remove();
+                            return (Some(content), Some(right));
+                        }
+                        None => ()
+                    };
+                    return (None, None);
+                },
+                None => (None, None)
+            }
         }
     }
 
     pub fn insert(&mut self, new_node: *mut MemTreeNode) -> InsertResult {
         unsafe {
             match self.root {
-                Some(root_ptr) => {
-                    match (*root_ptr).insert(new_node) {
+                Some(mut root) => {
+                    match root.insert(new_node) {
                         InsertResult::Done => {
                             (*new_node).repair();
                             while let Some(ptr) = (*new_node).parent() {
-                                self.root = Some(ptr);
+                                self.root = Some(*ptr);
                             }
                             InsertResult::Done
                         },
@@ -56,7 +92,7 @@ impl MemTree {
                     }
                 }
                 None => {
-                    self.root = Some(new_node);
+                    self.root = Some(*new_node);
                     InsertResult::Done
                 }
             }
@@ -66,7 +102,7 @@ impl MemTree {
     pub fn find(&mut self, target: &Area) -> Option<*mut MemTreeNode> {
         unsafe {
             match self.root {
-                Some(root_ptr) => (*root_ptr).find(target),
+                Some(mut root) => root.find(target),
                 None => None
             }
         }
@@ -74,13 +110,14 @@ impl MemTree {
 }
 
 impl MemTreeNode {
-    pub unsafe fn init(&mut self, block: &Block) {
-        self.content.order = block.order;
-        self.content.addr = block.addr;
-        self.left = None;
-        self.right = None;
-        self.parent = None;
-        self.color = Color::Red;
+    pub fn new(block: &Block) -> MemTreeNode {
+        MemTreeNode {
+            content: *block,
+            left: None,
+            right: None,
+            parent: None,
+            color: Color::Red
+        }
     }
 
     pub unsafe fn remove(&mut self) {

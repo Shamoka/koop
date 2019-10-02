@@ -42,6 +42,13 @@ impl Allocator {
         Ok(allocator)
     }
 
+    pub fn try_map(&mut self, area: &Area) -> Result<(), AllocError> {
+        if self.pml4.is_mapped(&area.base) {
+            return Ok(())
+        }
+        return self.map(area);
+    }
+
     pub fn map(&mut self, area: &Area) -> Result<(), AllocError> {
         for page in area.pages() {
             match self.frame_allocator.alloc() {

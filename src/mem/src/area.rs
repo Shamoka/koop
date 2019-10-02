@@ -20,9 +20,18 @@ impl Area {
         }
     }
 
+    pub fn order(&self) -> usize {
+        for i in 0..64 {
+            if self.len < 1 << i {
+                return i
+            }
+        }
+        64
+    }
+
     pub fn pages(&self) -> AreaIter {
         AreaIter {
-            pos: self.base.addr,
+            pos: self.base.addr & !(frame::FRAME_SIZE - 1),
             end: self.base.addr + self.len,
         }
     }
@@ -30,15 +39,6 @@ impl Area {
     pub fn contains(&self, addr: &Addr) -> bool {
         self.base.addr <= addr.addr
             && self.base.addr + self.len > addr.addr
-    }
-
-    pub fn split(&mut self, size: usize) -> Option<Area> {
-        if self.len < size {
-            return None;
-        }
-        let new_area = Area::new(self.base.addr + self.len - size, size);
-        self.len -= size;
-        Some(new_area)
     }
 
     pub fn overlap(&self, other: &Area) -> bool {
