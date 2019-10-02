@@ -1,17 +1,14 @@
-use crate::pool::{Pool, PoolResult};
 use crate::block::Block;
 use crate::area::Area;
 
 #[derive(Copy, Clone)]
 pub struct MemTree {
-    pub storage: *mut Pool<MemTreeNode>,
-    pub root: Option<*mut MemTreeNode>,
-    pub new_node: Option<*mut MemTreeNode>
+    pub root: Option<*mut MemTreeNode>
 }
 
 pub enum InsertResult {
     Done,
-    Request(*mut u8),
+    Request,
     Error
 }
 
@@ -36,48 +33,31 @@ pub struct MemTreeNode {
 }
 
 impl MemTree {
-    pub const fn new(storage: *mut Pool<MemTreeNode>) -> MemTree {
+    pub const fn new() -> MemTree {
         MemTree {
-            storage: storage,
-            root: None,
-            new_node: None
+            root: None
         }
     }
 
-    pub fn insert(&mut self, new_area: &Block) -> InsertResult {
+    pub fn insert(&mut self, new_node: *mut MemTreeNode) -> InsertResult {
         unsafe {
-            match self.new_node {
-                Some(new_node_ptr) => {
-                    (*new_node_ptr).init(new_area);
-                    match self.root {
-                        Some(root_ptr) => {
-                            match (*root_ptr).insert(new_node_ptr) {
-                                InsertResult::Done => {
-                                    (*new_node_ptr).repair();
-                                    while let Some(ptr) = (*new_node_ptr).parent() {
-                                        self.root = Some(ptr);
-                                    }
-                                    InsertResult::Done
-                                },
-                                InsertResult::Error => InsertResult::Error,
-                                InsertResult::Request(req) => InsertResult::Request(req)
+            match self.root {
+                Some(root_ptr) => {
+                    match (*root_ptr).insert(new_node) {
+                        InsertResult::Done => {
+                            (*new_node).repair();
+                            while let Some(ptr) = (*new_node).parent() {
+                                self.root = Some(ptr);
                             }
-                        }
-                        None => {
-                            self.root = self.new_node.take();
                             InsertResult::Done
-                        }
-                    }
-                },
-                None => {
-                    match (*self.storage).get_elem() {
-                        PoolResult::Done(new_node_ptr) => {
-                            self.new_node = Some(new_node_ptr);
-                            self.insert(new_area)
                         },
-                        PoolResult::Request(ptr) => InsertResult::Request(ptr as *mut u8),
-                        _ => InsertResult::Error
+                        InsertResult::Error => InsertResult::Error,
+                        InsertResult::Request => InsertResult::Request
                     }
+                }
+                None => {
+                    self.root = Some(new_node);
+                    InsertResult::Done
                 }
             }
         }

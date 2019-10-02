@@ -40,7 +40,7 @@ impl Block {
     }
 
     pub fn contains(&self, area: &Area) -> bool {
-        self.addr <= area.base.addr
-            && self.size() >= area.len + area.base.addr - self.addr
+        self.addr <= area.base.no_sign()
+            && self.size() >= area.len + area.base.no_sign() - self.addr
     }
 }

@@ -46,6 +46,10 @@ impl Addr {
             self.addr |= 0o177777_000_000_000_000_0000;
         }
     }
+
+    pub fn no_sign(&self) -> usize {
+        self.addr & (1 << 48) - 1
+    }
 }
 
 impl PartialEq for Addr {

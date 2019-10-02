@@ -8,7 +8,6 @@ mod table;
 mod entry;
 mod stage1;
 mod stage2;
-mod pool;
 mod memtree;
 mod block;
 mod buddies;
