@@ -1,12 +1,12 @@
 use crate::pool::{Pool, PoolResult};
+use crate::block::Block;
 use crate::area::Area;
 
-use core::cmp::Ordering;
-
+#[derive(Copy, Clone)]
 pub struct MemTree {
-    storage: *mut Pool<Node>,
-    root: Option<*mut Node>,
-    new_node: Option<*mut Node>
+    pub storage: *mut Pool<MemTreeNode>,
+    pub root: Option<*mut MemTreeNode>,
+    pub new_node: Option<*mut MemTreeNode>
 }
 
 pub enum InsertResult {
@@ -27,24 +27,24 @@ enum Child {
     None
 }
 
-struct Node {
-    content: Area,
-    left: Option<*mut Node>,
-    right: Option<*mut Node>,
-    parent: Option<*mut Node>,
+pub struct MemTreeNode {
+    pub content: Block,
+    left: Option<*mut MemTreeNode>,
+    right: Option<*mut MemTreeNode>,
+    parent: Option<*mut MemTreeNode>,
     color: Color
 }
 
 impl MemTree {
-    pub unsafe fn new(storage: &Area) -> MemTree {
+    pub const fn new(storage: *mut Pool<MemTreeNode>) -> MemTree {
         MemTree {
-            storage: Pool::new(storage),
+            storage: storage,
             root: None,
             new_node: None
         }
     }
 
-    pub fn insert(&mut self, new_area: &Area) -> InsertResult {
+    pub fn insert(&mut self, new_area: &Block) -> InsertResult {
         unsafe {
             match self.new_node {
                 Some(new_node_ptr) => {
@@ -71,8 +71,8 @@ impl MemTree {
                 },
                 None => {
                     match (*self.storage).get_elem() {
-                        PoolResult::Done(ptr) => {
-                            self.new_node = Some(ptr);
+                        PoolResult::Done(new_node_ptr) => {
+                            self.new_node = Some(new_node_ptr);
                             self.insert(new_area)
                         },
                         PoolResult::Request(ptr) => InsertResult::Request(ptr as *mut u8),
@@ -83,7 +83,7 @@ impl MemTree {
         }
     }
 
-    pub fn find(&mut self, target: &Area) -> Option<*mut Node> {
+    pub fn find(&mut self, target: &Area) -> Option<*mut MemTreeNode> {
         unsafe {
             match self.root {
                 Some(root_ptr) => (*root_ptr).find(target),
@@ -91,44 +91,41 @@ impl MemTree {
             }
         }
     }
-
-    pub unsafe fn delete(&mut self, target: *mut Node) {
-        (*target).delete();
-    }
 }
 
-impl Node {
-    pub fn init(&mut self, area: &Area) {
-        self.content = *area;
-        self.right = None;
+impl MemTreeNode {
+    pub unsafe fn init(&mut self, block: &Block) {
+        self.content.order = block.order;
+        self.content.addr = block.addr;
         self.left = None;
+        self.right = None;
         self.parent = None;
         self.color = Color::Red;
     }
 
-    pub unsafe fn delete(&mut self) {
+    pub unsafe fn remove(&mut self) {
     }
 
-    pub unsafe fn find(&mut self, target: &Area) -> Option<*mut Node> {
-        match self.content.cmp(target) {
-            Ordering::Less => {
-                match self.left {
-                    Some(ptr) => (*ptr).find(target),
-                    None => None
-                }
-            },
-            Ordering::Greater => {
-                match self.right {
-                    Some(ptr) => (*ptr).find(target),
-                    None => None
-                }
-            }
-            Ordering::Equal => Some(self as *mut Node)
+    pub unsafe fn find(&mut self, target: &Area) -> Option<*mut MemTreeNode> {
+        if self.content.contains(target) {
+            return Some(self as *mut MemTreeNode);
         }
+        if target.base.addr < self.content.addr {
+            match self.left {
+                Some(ptr) => return (*ptr).find(target),
+                None => return None
+            }
+        } else if target.base.addr > self.content.addr {
+            match self.right {
+                Some(ptr) => return (*ptr).find(target),
+                None => return None
+            }
+        }
+        None
     }
 
-    pub unsafe fn insert(&mut self, new_node: *mut Node) -> InsertResult {
-        if (*new_node).content.base.addr < self.content.base.addr {
+    pub unsafe fn insert(&mut self, new_node: *mut MemTreeNode) -> InsertResult {
+        if self.content.addr < self.content.addr {
             match self.left {
                 Some(node) => return (*node).insert(new_node),
                 None => self.left = Some(new_node)
@@ -139,7 +136,7 @@ impl Node {
                 None => self.right = Some(new_node)
             };
         }
-        (*new_node).parent = Some(self as *mut Node);
+        (*new_node).parent = Some(self as *mut MemTreeNode);
         InsertResult::Done
     }
 
@@ -187,7 +184,7 @@ impl Node {
     unsafe fn insert_case_4(&mut self) {
         if let Some(parent) = self.parent {
             if let Some(grand_parent) = self.grand_parent() {
-                if Some(self as *mut Node) == (*parent).left {
+                if Some(self as *mut MemTreeNode) == (*parent).left {
                     (*grand_parent).rotate_right();
                 } else {
                     (*grand_parent).rotate_left();
@@ -202,9 +199,9 @@ impl Node {
         match self.right {
             Some(right) => {
                 self.right = (*right).left;
-                (*right).left = Some(self as *mut Node);
+                (*right).left = Some(self as *mut MemTreeNode);
                 self.parent = Some(right);
-                (*right).parent = Some(self as *mut Node);
+                (*right).parent = Some(self as *mut MemTreeNode);
                 self.rotate_common(right);
             },
             None => ()
@@ -215,20 +212,20 @@ impl Node {
         match self.left {
             Some(left) => {
                 self.left = (*left).right;
-                (*left).right = Some(self as *mut Node);
+                (*left).right = Some(self as *mut MemTreeNode);
                 self.parent = Some(left);
-                (*left).parent = Some(self as *mut Node);
+                (*left).parent = Some(self as *mut MemTreeNode);
                 self.rotate_common(left);
             },
             None => ()
         }
     }
 
-    pub fn parent(&self) -> Option<*mut Node> {
+    pub fn parent(&self) -> Option<*mut MemTreeNode> {
         self.parent
     }
 
-    unsafe fn rotate_common(&mut self, ptr: *mut Node) {
+    unsafe fn rotate_common(&mut self, ptr: *mut MemTreeNode) {
         if let Some(parent) = self.parent {
             match self.which_child() {
                 Child::Right => (*parent).left = Some(ptr),
@@ -243,7 +240,7 @@ impl Node {
         match self.parent {
             Some(parent) => {
                 if let Some(node) = (*parent).left {
-                    if node == self as *mut Node {
+                    if node == self as *mut MemTreeNode {
                         return Child::Left;
                     }
                 }
@@ -253,23 +250,23 @@ impl Node {
         }
     }
 
-    unsafe fn grand_parent(&self) -> Option<*mut Node> {
+    unsafe fn grand_parent(&self) -> Option<*mut MemTreeNode> {
         match self.parent {
             Some(parent) => (*parent).parent,
             None => None
         }
     }
 
-    unsafe fn sibling(&mut self) -> Option<*mut Node> {
+    unsafe fn sibling(&mut self) -> Option<*mut MemTreeNode> {
         match self.parent {
             Some(parent) => {
                 if let Some(left) = (*parent).left {
-                    if left == self as *mut Node {
+                    if left == self as *mut MemTreeNode {
                         return (*parent).right;
                     }
                 };
                 if let Some(right) = (*parent).right {
-                    if right == self as *mut Node {
+                    if right == self as *mut MemTreeNode {
                         return (*parent).left;
                     }
                 };
@@ -279,7 +276,7 @@ impl Node {
         }
     }
 
-    unsafe fn uncle(&mut self) -> Option<*mut Node> {
+    unsafe fn uncle(&mut self) -> Option<*mut MemTreeNode> {
         match self.parent {
             Some(parent) => (*parent).sibling(),
             None => None

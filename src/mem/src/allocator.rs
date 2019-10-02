@@ -43,7 +43,7 @@ impl Allocator {
 
     unsafe fn _init(&self, mb2: multiboot2::Info) -> Result<(), AllocError> {
         match stage1::Allocator::new(mb2) {
-            Ok(mut s1_allocator) => {
+            Ok(s1_allocator) => {
                 match stage2::Allocator::new(s1_allocator) {
                     Ok(s2_allocator) => {
                         *self.internal.get() = Stage::Stage2(s2_allocator);

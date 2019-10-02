@@ -42,7 +42,7 @@ all:		$(KERNEL)
 
 $(KERNEL): 	$(OBJ) $(LD_SCRIPT) cargo
 	mkdir -p $(KERNELDIR)
-	$(LD) --strip-debug -n -T $(LD_SCRIPT) -o $(KERNEL) $(OBJ) $(RUST_LIB)
+	$(LD) -n -T $(LD_SCRIPT) -o $(KERNEL) $(OBJ) $(RUST_LIB)
 
 cargo:
 	cargo-fmt
@@ -56,7 +56,7 @@ $(ISO):		$(KERNEL) $(GRUBDIR)/$(GRUB_CFG)
 
 
 run:	$(ISO)
-	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_OPT)
+	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_OPT) -d int -no-reboot
 
 release: RELEASE= --release
 release: $(ISO)

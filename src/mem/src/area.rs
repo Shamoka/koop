@@ -70,23 +70,3 @@ impl Iterator for AreaIter {
         Some(addr)
     }
 }
-
-impl core::cmp::PartialOrd for Area {
-    fn partial_cmp(&self, other: &Area) -> Option<core::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl core::cmp::Ord for Area {
-    fn cmp(&self, other: &Area) -> core::cmp::Ordering {
-        self.base.addr.cmp(&other.base.addr)
-    }
-}
-
-impl core::cmp::PartialEq for Area {
-    fn eq(&self, other: &Area) -> bool {
-        self.base.addr == other.base.addr
-    }
-}
-
-impl core::cmp::Eq for Area { }

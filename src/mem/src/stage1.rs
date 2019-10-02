@@ -7,7 +7,6 @@ use crate::frame;
 use crate::table::{TableLevel, PML4};
 use crate::AllocError;
 use crate::UPPER_MEMORY_BOUND;
-use crate::stage2;
 
 const NEW_PML4: Addr = Addr::new(0xdeadbeef000);
 
@@ -95,6 +94,16 @@ impl Allocator {
                 entry::FLAG_WRITABLE | entry::FLAG_PRESENT,
             ),
         );
+        if let Err(error) = new_pml4.map_frame(
+            &NEW_PML4,
+            Entry::new(
+                pml4_frame.base.addr,
+                entry::FLAG_WRITABLE | entry::FLAG_PRESENT,
+            ),
+            &mut self.frame_allocator,
+        ) {
+            return Err(error);
+        }
         Ok((new_pml4, pml4_frame))
     }
 

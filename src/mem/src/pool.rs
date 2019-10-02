@@ -3,16 +3,17 @@ use crate::area::Area;
 use core::mem::size_of;
 
 pub struct Pool<T: Sized> {
-    root: Option<*mut Node<T>>,
-    storage: *mut Node<T>,
+    root: Option<*mut PoolNode<T>>,
+    storage: *mut PoolNode<T>,
     size: usize,
     in_storage: usize,
-    request: Option<*mut Pool<T>>
+    request: Option<*mut Pool<T>>,
+    pos: usize
 }
 
-struct Node<T: Sized> {
+pub struct PoolNode<T: Sized> {
     content: T,
-    next: Option<*mut Node<T>>
+    next: Option<*mut PoolNode<T>>
 }
 
 pub enum PoolResult<T: Sized> {
@@ -23,38 +24,39 @@ pub enum PoolResult<T: Sized> {
 }
 
 impl<T: Sized> Pool<T> {
-    pub unsafe fn new(area: &Area) -> *mut Pool<T> {
-        let mut pool_ptr = area.base.addr as *mut Pool<T>;
+    pub unsafe fn new(pool_area: &Area, alloc_area: &Area) -> *mut Pool<T> {
+        let mut pool_ptr = pool_area.base.addr as *mut Pool<T>;
         (*pool_ptr).root = None;
-        (*pool_ptr).storage = (area.base.addr + size_of::<Pool<T>>()) as *mut Node<T>;
-        (*pool_ptr).size = area.len - size_of::<Pool<T>>();
-        (*pool_ptr).in_storage = (*pool_ptr).size / size_of::<Node<T>>();
+        (*pool_ptr).storage = alloc_area.base.addr as *mut PoolNode<T>;
+        (*pool_ptr).size = alloc_area.len;
+        (*pool_ptr).in_storage = alloc_area.len / size_of::<PoolNode<T>>();
+        (*pool_ptr).request = None;
+        (*pool_ptr).pos = 0;
         pool_ptr
     }
 
     pub unsafe fn get_elem(&mut self) -> PoolResult<T> {
         match self.root {
             Some(node) => {
-                let ret = &mut (*node).content as *mut T;
+                let ret = (*node).content_ptr();
                 self.root = (*node).next;
                 PoolResult::Done(ret)
             },
             None => {
-                match self.in_storage {
-                    0 => self.get_page_request(),
-                    _ => {
-                        self.in_storage -= 1;
-                        let mut new_node = self.storage.offset(self.in_storage as isize);
-                        (*new_node).next = self.root;
-                        self.root = Some(new_node);
-                        PoolResult::Done(&mut (*new_node).content as *mut T)
+                match self.pos < self.in_storage {
+                    false => self.get_page_request(),
+                    true => {
+                        let new_node = self.storage.offset(self.pos as isize);
+                        let ret = (*new_node).content_ptr();
+                        self.pos += 1;
+                        PoolResult::Done(ret)
                     }
                 }
             }
         }
     }
 
-    pub unsafe fn give_elem(&mut self, elem: *mut Node<T>) {
+    pub unsafe fn give_elem(&mut self, elem: *mut PoolNode<T>) {
         (*elem).next = self.root;
         self.root = Some(elem);
     }
@@ -82,6 +84,12 @@ impl<T: Sized> Pool<T> {
 
     fn grow(&mut self, size: usize) {
         self.size += size;
-        self.in_storage += size / size_of::<Node<T>>();
+        self.in_storage += size / size_of::<PoolNode<T>>();
+    }
+}
+
+impl<T: Sized> PoolNode<T> {
+    pub fn content_ptr(&mut self) -> *mut T {
+        &mut self.content as *mut T
     }
 }

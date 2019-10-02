@@ -13,6 +13,11 @@ fn panic(info: &PanicInfo) -> ! {
 #[no_mangle]
 pub fn koop(mb2: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
+    unsafe {
+        if let Err(error) = ALLOCATOR.init(multiboot2::Info::new(mb2)) {
+            panic!("{:?}", error);
+        }
+    }
     println!("OK");
     loop {}
 }

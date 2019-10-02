@@ -10,7 +10,8 @@ mod stage1;
 mod stage2;
 mod pool;
 mod memtree;
-pub mod block;
+mod block;
+mod buddies;
 
 pub mod addr;
 pub mod area;
