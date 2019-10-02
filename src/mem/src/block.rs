@@ -28,9 +28,4 @@ impl Block {
             addr: self.addr + self.size()
         })
     }
-
-    pub fn contains(&self, area: &Area) -> bool {
-        self.addr <= area.base.no_sign()
-            && self.size() >= area.len + area.base.no_sign() - self.addr
-    }
 }

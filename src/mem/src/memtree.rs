@@ -124,7 +124,7 @@ impl MemTreeNode {
     }
 
     pub unsafe fn find(&mut self, target: &Area) -> Option<*mut MemTreeNode> {
-        if self.content.contains(target) {
+        if target.base.addr == self.content.addr {
             return Some(self as *mut MemTreeNode);
         }
         if target.base.addr < self.content.addr {

@@ -26,7 +26,7 @@ impl Area {
                 return i
             }
         }
-        64
+        63
     }
 
     pub fn pages(&self) -> AreaIter {
@@ -34,26 +34,6 @@ impl Area {
             pos: self.base.addr & !(frame::FRAME_SIZE - 1),
             end: self.base.addr + self.len,
         }
-    }
-
-    pub fn contains(&self, addr: &Addr) -> bool {
-        self.base.addr <= addr.addr
-            && self.base.addr + self.len > addr.addr
-    }
-
-    pub fn overlap(&self, other: &Area) -> bool {
-        if other.len == 0 {
-            return false;
-        }
-        if self.base.addr <= other.base.addr
-            && self.base.addr + self.len > other.base.addr {
-                return true;
-            }
-        if self.base.addr >= other.base.addr
-            && other.base.addr + other.len > self.base.addr {
-                return true;
-            }
-        return false;
     }
 }
 

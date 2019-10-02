@@ -33,36 +33,10 @@ impl Allocator {
     }
 
     pub fn alloc(&mut self, len: usize) -> *mut u8 {
-        if len > 1 << BUCKETS {
-            return 0 as *mut u8;
-        }
-        let order = self.get_order(len);
-        if BUCKETS - order > self.stock_count {
-            if let Err(_) = self.alloc_nodes(BUCKETS - order + 1) {
-                return 0 as *mut u8;
-            }
-        }
-        match self.alloc_recurse(order) {
+        match self.alloc_recurse(self.get_order(len)) {
             Ok(block) => block.addr as *mut u8,
             Err(_) => 0 as *mut u8
         }
-    }
-
-    fn alloc_nodes(&mut self, nb_nodes: usize) -> Result<(), AllocError> {
-        while self.stock_count < nb_nodes {
-            match self.alloc_recurse(self.mem_tree_node_order)  {
-                Ok(block) => {
-                    let node = block.addr as *mut MemTreeNode;
-                    unsafe {
-                        (*node).left = self.stock;
-                    }
-                    self.stock = Some(node);
-                    self.stock_count += 1;
-                },
-                Err(error) => return Err(error)
-            };
-        }
-        Ok(())
     }
 
     fn alloc_recurse(&mut self, order: usize) -> Result<Block, AllocError> {
@@ -91,20 +65,25 @@ impl Allocator {
         }
     }
 
-    fn handle_new_block(&mut self, mut block: Block, order: usize) -> Result<Block, AllocError> {
-        match block.split() {
-            Some(new_block) => {
-                self.buddies[order - 1].root = Some(MemTreeNode::new(&new_block));
-                if order == 12 {
-                    if let Err(_) = self.internal.map(&Area::new(block.addr, block.size())) {
-                        return self.alloc_recurse(order + 1);
+    fn handle_new_block(&mut self, mut block: Block, order: usize)
+        -> Result<Block, AllocError> {
+            let block_keep: &Block;
+            let block_discard: &Block;
+            match block.split() {
+                Some(new_block) => {
+                    block_keep = &block;
+                    block_discard = &new_block;
+                    self.buddies[order - 1].root = Some(MemTreeNode::new(block_discard));
+                    if order == 12 {
+                        if let Err(_) = self.internal.map(&Area::new(block_keep.addr, block.size())) {
+                            return self.alloc_recurse(order + 1);
+                        }
                     }
-                }
-                return Ok(block);
-            },
-            None => return Err(AllocError::OutOfMemory)
+                    return Ok(*block_keep);
+                },
+                None => return Err(AllocError::OutOfMemory)
+            }
         }
-    }
 
     fn get_order(&self, len: usize) -> usize {
         for i in 0..BUCKETS {
