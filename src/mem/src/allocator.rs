@@ -63,6 +63,13 @@ impl Allocator {
             _ => 0 as *mut u8
         }
     }
+
+    pub unsafe fn memdealloc(&self, ptr: *mut u8) {
+        let _lock = self.mutex.lock();
+        if let Stage::Stage2(allocator) = &mut *self.internal.get() {
+            allocator.dealloc(ptr);
+        }
+    }
 }
 
 unsafe impl Send for Allocator {}

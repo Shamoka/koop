@@ -17,6 +17,7 @@ pub fn koop(mb2: usize) -> ! {
         if let Err(error) = ALLOCATOR.init(multiboot2::Info::new(mb2)) {
             panic!("{:?}", error);
         }
+        ALLOCATOR.memalloc(1);
         let ptr = ALLOCATOR.memalloc(1000);
         if ptr.is_null() {
             panic!("No memory allocated");

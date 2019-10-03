@@ -1,5 +1,4 @@
 use crate::block::Block;
-use crate::area::Area;
 
 #[derive(Copy, Clone)]
 pub struct MemTree {
@@ -48,7 +47,7 @@ impl MemTree {
                 Some(block) => TakeResult::Block(block),
                 None => {
                     match self.root {
-                        Some(mut root) => TakeResult::Node((*root).take()),
+                        Some(root) => TakeResult::Node((*root).take()),
                         None => TakeResult::Empty
                     }
                 }
@@ -58,7 +57,7 @@ impl MemTree {
 
     pub fn insert_block(&mut self, block: &Block) -> bool {
         match self.block {
-            Some(block) => false,
+            Some(_) => false,
             None => {
                 self.block = Some(*block);
                 true
@@ -66,14 +65,15 @@ impl MemTree {
         }
     }
 
-    pub fn insert(&mut self, new_node: *mut MemTreeNode) {
+    pub fn insert(&mut self, mut new_node: *mut MemTreeNode) {
         unsafe {
             match self.root {
-                Some(mut root) => {
+                Some(root) => {
                     (*root).insert(new_node);
                     (*new_node).repair();
                     while let Some(ptr) = (*new_node).parent() {
                         self.root = Some(ptr);
+                        new_node = ptr;
                     }
                 },
                 None => self.root = Some(new_node)
@@ -81,10 +81,10 @@ impl MemTree {
         }
     }
 
-    pub fn find(&mut self, target: &Block) -> Option<*mut MemTreeNode> {
+    pub fn find(&mut self, addr: usize) -> Option<*mut MemTreeNode> {
         unsafe {
             match self.root {
-                Some(mut root) => (*root).find(target),
+                Some(root) => (*root).find(addr),
                 None => None
             }
         }
@@ -92,14 +92,12 @@ impl MemTree {
 }
 
 impl MemTreeNode {
-    pub fn new(block: &Block) -> MemTreeNode {
-        MemTreeNode {
-            content: *block,
-            left: None,
-            right: None,
-            parent: None,
-            color: Color::Red
-        }
+    pub fn init(&mut self, block: &Block) {
+        self.content = *block;
+        self.left = None;
+        self.right = None;
+        self.parent = None;
+        self.color = Color::Red;
     }
 
     pub fn take(&mut self) -> *mut MemTreeNode {
@@ -118,18 +116,18 @@ impl MemTreeNode {
         0 as *mut MemTreeNode
     }
 
-    pub unsafe fn find(&mut self, target: &Block) -> Option<*mut MemTreeNode> {
-        if target.addr == self.content.addr {
+    pub unsafe fn find(&mut self, addr: usize) -> Option<*mut MemTreeNode> {
+        if addr == self.content.addr {
             return Some(self as *mut MemTreeNode);
         }
-        if target.addr < self.content.addr {
+        if addr < self.content.addr {
             match self.left {
-                Some(ptr) => return (*ptr).find(target),
+                Some(ptr) => return (*ptr).find(addr),
                 None => return None
             }
-        } else if target.addr > self.content.addr {
+        } else if addr > self.content.addr {
             match self.right {
-                Some(ptr) => return (*ptr).find(target),
+                Some(ptr) => return (*ptr).find(addr),
                 None => return None
             }
         }
