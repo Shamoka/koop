@@ -10,6 +10,7 @@ mod stage1;
 mod stage2;
 mod memtree;
 mod block;
+mod stack;
 
 pub mod addr;
 pub mod area;

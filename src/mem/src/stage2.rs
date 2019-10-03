@@ -1,6 +1,6 @@
 use crate::stage1;
 use crate::AllocError;
-use crate::memtree::{MemTree, MemTreeNode};
+use crate::memtree::{MemTree, MemTreeNode, TakeResult};
 use crate::area::Area;
 use crate::block::Block;
 
@@ -28,7 +28,7 @@ impl Allocator {
         while 1 << allocator.mem_tree_node_order < size_of::<MemTreeNode>() {
             allocator.mem_tree_node_order += 1;
         }
-        allocator.buddies[BUCKETS - 1] = MemTree::new_init(&Block::new(0, BUCKETS - 1));
+        allocator.buddies[BUCKETS - 1].insert_block(&Block::new(0, BUCKETS - 1));
         Ok(allocator)
     }
 
@@ -44,22 +44,20 @@ impl Allocator {
             return Err(AllocError::OutOfMemory);
         }
         match self.buddies[order].take() {
-            (block, node) => {
-                if let Some(value) = node {
-                    unsafe {
-                        (*value).left = self.stock.take();
-                    }
-                    self.stock = Some(value);
-                    self.stock_count += 1;
+            TakeResult::Block(block) => {
+                return self.handle_new_block(block, order);
+            },
+            TakeResult::Node(node) => {
+                unsafe {
+                    (*node).left = self.stock;
+                    self.stock = Some(node);
+                    Ok((*node).content)
                 }
-                match block {
-                    Some(value) => self.handle_new_block(value, order),
-                    None => {
-                        match self.alloc_recurse(order + 1) {
-                            Ok(new_block) => self.handle_new_block(new_block, order),
-                            Err(error) => return Err(error)
-                        }
-                    }
+            },
+            TakeResult::Empty => {
+                match self.alloc_recurse(order + 1) {
+                    Ok(new_block) => self.handle_new_block(new_block, order),
+                    Err(error) => Err(error)
                 }
             }
         }
@@ -73,7 +71,7 @@ impl Allocator {
                 Some(new_block) => {
                     block_keep = &block;
                     block_discard = &new_block;
-                    self.buddies[order - 1].root = Some(MemTreeNode::new(block_discard));
+                    self.buddies[order - 1].insert_block(block_discard);
                     if order == 12 {
                         if let Err(_) = self.internal.map(&Area::new(block_keep.addr, block.size())) {
                             return self.alloc_recurse(order + 1);
