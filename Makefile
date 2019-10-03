@@ -62,7 +62,7 @@ release: RELEASE= --release
 release: $(ISO)
 
 run-debug:	$(ISO)
-	qemu-system-x86_64 -cdrom $(ISO) -s -S -d int -no-reboot
+	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_OPT) -s -S -d int -no-reboot
 
 iso:	$(ISO)
 

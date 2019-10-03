@@ -12,6 +12,18 @@ impl Block {
         }
     }
 
+    pub fn sign_addr(&self) -> usize {
+        if self.addr & (1 << 47) == 0 {
+            self.addr & 0o000000_777_777_777_777_7777
+        } else {
+            self.addr | 0o177777_000_000_000_000_0000
+        }
+    }
+
+    pub fn no_sign_addr(&self) -> usize {
+        self.addr & 0o000000_777_777_777_777_7777
+    }
+
     pub fn size(&self) -> usize {
         1 << self.order
     }

@@ -17,14 +17,17 @@ pub fn koop(mb2: usize) -> ! {
         if let Err(error) = ALLOCATOR.init(multiboot2::Info::new(mb2)) {
             panic!("{:?}", error);
         }
-        ALLOCATOR.memalloc(1);
-        let ptr = ALLOCATOR.memalloc(1000);
-        if ptr.is_null() {
-            panic!("No memory allocated");
+        let mut ptrs = [0 as *mut u8; 100];
+        for i in 1..100 {
+            ptrs[i] = ALLOCATOR.memalloc(i * 20 + 10);
+            if ptrs[i].is_null() {
+                panic!("Alloc number {} failed", i);
+            }
         }
-        for i in 0..1000 {
-            *ptr.offset(i as isize) = 0;
+        for i in 0..10 {
+            ALLOCATOR.memdealloc(ptrs[i]);
         }
+        ALLOCATOR.inspect();
     }
     println!("OK");
     loop {}

@@ -64,6 +64,14 @@ impl Allocator {
         }
     }
 
+    pub unsafe fn inspect(&self) {
+        let _lock = self.mutex.lock();
+        match &mut *self.internal.get() {
+            Stage::Stage2(allocator) => allocator.inspect(),
+            _ => ()
+        }
+    }
+
     pub unsafe fn memdealloc(&self, ptr: *mut u8) {
         let _lock = self.mutex.lock();
         if let Stage::Stage2(allocator) = &mut *self.internal.get() {

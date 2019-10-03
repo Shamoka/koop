@@ -76,6 +76,9 @@ macro_rules! impl_table_level {
                             },
                             Err(error) => return Err(error)
                         };
+                    } else if current_entry.flags & entry::FLAG_WRITABLE == 0 
+                        || current_entry.flags & entry::FLAG_PRESENT == 0 {
+                        return Err(AllocError::Forbidden);
                     }
                     let mut down_level = Self::DownLevel::new(
                         &addr.get_table_addr(self.level - 1, self.base), self.base);

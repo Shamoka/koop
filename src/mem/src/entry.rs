@@ -9,8 +9,8 @@ const FLAG_BITS: usize = !ADDR_BITS;
 
 #[derive(Debug)]
 pub struct Entry {
-    addr: usize,
-    flags: usize
+    pub addr: usize,
+    pub flags: usize
 }
 
 impl Entry {
