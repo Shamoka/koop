@@ -38,7 +38,7 @@ RELEASE		=
 
 QEMU_OPT	=	-m 2G
 
-all:		$(KERNEL)
+all:		$(ISO)
 
 $(KERNEL): 	$(OBJ) $(LD_SCRIPT) cargo
 	mkdir -p $(KERNELDIR)
@@ -55,7 +55,7 @@ $(ISO):		$(KERNEL) $(GRUBDIR)/$(GRUB_CFG)
 	grub-mkrescue -o $(ISO) $(BUILDDIR)/iso
 
 
-run:	$(ISO)
+run:
 	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_OPT) -d int -no-reboot
 
 release: RELEASE= --release

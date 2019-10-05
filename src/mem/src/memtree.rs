@@ -2,6 +2,8 @@ use crate::block::Block;
 
 use core::cmp::Ordering;
 
+use core::mem::size_of;
+
 pub enum TakeResult<'a> {
     Node(*mut Node<'a>),
     Block(Block),
@@ -373,13 +375,15 @@ impl<'a> NodeType<'a> {
 
     unsafe fn delete_3(&mut self) {
         if let Some(&mut mut s) = self.sibling() {
-            let mut parent = NodeType::Node(self.parent_ptr());
-            if parent.get_color() == Color::Black && s.get_color() == Color::Black
-                && s.right().get_color() == Color::Black && s.left().get_color() == Color::Black {
-                    s.set_color(Color::Red);
-                    parent.delete_1();
-            } else {
-                self.delete_4();
+            if s.is_node() {
+                let mut parent = NodeType::Node(self.parent_ptr());
+                if parent.get_color() == Color::Black && s.get_color() == Color::Black
+                    && s.right().get_color() == Color::Black && s.left().get_color() == Color::Black {
+                        s.set_color(Color::Red);
+                        parent.delete_1();
+                    } else {
+                        self.delete_4();
+                }
             }
         }
     }
@@ -391,8 +395,8 @@ impl<'a> NodeType<'a> {
                 && s.right().get_color() == Color::Black && s.left().get_color() == Color::Black {
                     s.set_color(Color::Red);
                     parent.set_color(Color::Black);
-            } else {
-                self.delete_5();
+                } else {
+                    self.delete_5();
             }
         }
     }
@@ -406,12 +410,12 @@ impl<'a> NodeType<'a> {
                         s.set_color(Color::Red);
                         s.left().set_color(Color::Black);
                         s.rotate_right();
-                } else if *self == *parent.right() && s.left().get_color() == Color::Black
-                    && s.right().get_color() == Color::Red {
-                        s.set_color(Color::Red);
-                        s.right().set_color(Color::Red);
-                        s.rotate_left();
-                }
+                    } else if *self == *parent.right() && s.left().get_color() == Color::Black
+                        && s.right().get_color() == Color::Red {
+                            s.set_color(Color::Red);
+                            s.right().set_color(Color::Red);
+                            s.rotate_left();
+                    }
             }
         }
         self.delete_6();
