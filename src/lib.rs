@@ -14,17 +14,19 @@ fn panic(info: &PanicInfo) -> ! {
 pub fn koop(mb2: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
     unsafe {
-        if let Err(error) = ALLOCATOR.init(multiboot2::Info::new(mb2)) {
-            panic!("{:?}", error);
-        }
-        let mut ptrs = [0 as *mut u8; 100];
-        for i in 1..100 {
-            ptrs[i] = ALLOCATOR.memalloc(i * 20 + 10);
+        ALLOCATOR.init(multiboot2::Info::new(mb2));
+        let mut ptrs = [0 as *mut u8; 1000];
+        for i in 0..1000 {
+            let size = i * 2 + 10;
+            ptrs[i] = ALLOCATOR.memalloc(size);
             if ptrs[i].is_null() {
                 panic!("Alloc number {} failed", i);
             }
+            for j in 0..size {
+                (*ptrs[i].offset(j as isize)) = 42;
+            }
         }
-        for i in 0..10 {
+        for i in 0..1000 {
             ALLOCATOR.memdealloc(ptrs[i]);
         }
         ALLOCATOR.inspect();

@@ -1,70 +1,77 @@
 use crate::stage1;
 use crate::AllocError;
-use crate::memtree::{MemTree, MemTreeNode, TakeResult};
 use crate::area::Area;
 use crate::block::Block;
-use crate::addr::Addr;
+use crate::memtree;
 
 use core::mem::size_of;
 
-const BUCKETS: usize = 49;
+const BUCKETS: usize = 48;
 
-pub struct Allocator {
+pub struct Allocator<'a> {
     internal: stage1::Allocator,
-    buddies: [MemTree; BUCKETS],
-    blocks: MemTree,
-    mem_tree_node_order: usize,
-    stock: *mut MemTreeNode,
-    stock_count: usize
+    buddies: [memtree::Tree<'a>; BUCKETS],
+    blocks: memtree::Tree<'a>,
+    mem_tree_node_order: usize
 }
 
-impl Allocator {
-    pub fn new(stage1: stage1::Allocator) -> Result<Allocator, AllocError> {
+impl<'a> Allocator<'a> {
+    pub fn new(mb2: multiboot2::Info) -> Allocator<'a> {
         let mut allocator = Allocator {
-            internal: stage1,
-            buddies: [MemTree::new(); BUCKETS],
-            blocks: MemTree::new(),
-            mem_tree_node_order: 0,
-            stock: 0 as *mut MemTreeNode,
-            stock_count: 0
+            internal: stage1::Allocator::new(mb2),
+            buddies: [memtree::Tree::new(); BUCKETS],
+            blocks: memtree::Tree::new(),
+            mem_tree_node_order: 0
         };
-        while 1 << allocator.mem_tree_node_order < size_of::<MemTreeNode>() {
+        while 1 << allocator.mem_tree_node_order < size_of::<memtree::Node>() {
             allocator.mem_tree_node_order += 1;
         }
         allocator.buddies[BUCKETS - 1].insert_block(&Block::new(0, BUCKETS - 1));
-        Ok(allocator)
+        allocator
     }
 
-    pub fn dealloc(&mut self, ptr: *mut u8) {
-        unsafe {
-            let block = Block::new(ptr as usize, 0);
-            match self.blocks.find(block.no_sign_addr()) {
-                Some(node) => {
-                    (*node).remove();
-                    (*node).init(&(*node).content);
-                    self.dealloc_recurse(node);
-                },
-                None => ()
-            }
-        }
-    }
-    
-    pub fn inspect(&mut self) {
+    pub fn inspect(&self) {
         self.blocks.inspect();
     }
 
-    fn dealloc_recurse(&mut self, node: *mut MemTreeNode) {
+    pub fn dealloc(&mut self, ptr: *mut u8) {
+        let mut block = Block::new(ptr as usize, 0);
+        block.remove_sign();
+        match self.blocks.delete(block.addr) {
+            Some(_node) => {
+                // TODO: pool nodes
+                self.dealloc_recurse(&mut block);
+            },
+            None => panic!("Block {:?} not found in dealloc", block)
+        }
+    }
+
+    fn dealloc_recurse(&mut self, block: &mut Block) {
         unsafe {
-            match self.buddies[(*node).content.order].find((*node).content.buddy_addr()) {
+            if let Some(buddies_block) = self.buddies[block.order].block {
+                if block.buddy_addr() == buddies_block.addr {
+                    block.merge(&buddies_block);
+                    self.buddies[block.order - 1].block = None;
+                    return self.dealloc_recurse(block);
+                }
+            }
+            match self.buddies[block.order].delete(block.buddy_addr()) {
                 Some(buddy_node) => {
-                    (*buddy_node).remove();
-                    (*node).content.merge(&(*buddy_node).content);
-                    (*buddy_node).left = self.stock;
-                    self.stock = buddy_node;
-                    self.stock_count += 1;
-                    self.dealloc_recurse(node);
+                    block.merge(&(*buddy_node).content);
+                    // TODO: pool nodes
+                    self.dealloc_recurse(block);
                 },
-                None => self.buddies[(*node).content.order].insert(node)
+                None => {
+                    match self.alloc_recurse(self.mem_tree_node_order, self.mem_tree_node_order) {
+                        Ok(mut node_block) => {
+                            node_block.add_sign();
+                            let new_node: *mut memtree::Node<'a> = node_block.addr as *mut memtree::Node;
+                            (*new_node).content = *block;
+                            self.buddies[block.order].insert(new_node);
+                        },
+                        _ => ()
+                    }
+                }
             }
         }
     }
@@ -75,14 +82,18 @@ impl Allocator {
         }
         let target = self.get_order(len);
         match self.alloc_recurse(self.mem_tree_node_order, self.mem_tree_node_order) {
-            Ok(node_block) => {
+            Ok(mut node_block) => {
                 match self.alloc_recurse(target, target) {
-                    Ok(block) => {
+                    Ok(mut block) => {
+                        block.remove_sign();
+                        node_block.add_sign();
                         unsafe {
-                            (*(node_block.sign_addr() as *mut MemTreeNode)).init(&block);
-                            self.blocks.insert(node_block.sign_addr() as *mut MemTreeNode);
+                            let new_node: *mut memtree::Node<'a> = node_block.addr as *mut memtree::Node;
+                            (*new_node).content = block;
+                            self.blocks.insert(new_node)
                         }
-                        block.sign_addr() as *mut u8
+                        block.add_sign();
+                        block.addr as *mut u8
                     }
                     Err(_) => 0 as *mut u8
                 }
@@ -97,91 +108,52 @@ impl Allocator {
         }
         loop {
             match self.buddies[order].take() {
-                TakeResult::Block(block) => {
+                memtree::TakeResult::Block(block) => {
                     if (block.order == target && target >= 12)
                         || (target < 12 && block.order == 12) {
                             if let Err(_) = self.internal.map(&Area::new(block.addr, block.size())) {
                                 return self.alloc_recurse(order, target);
+                            }
                         }
-                    }
                     return Ok(block)
                 },
-                TakeResult::Node(node) => {
+                memtree::TakeResult::Node(node) => {
                     unsafe {
-                        (*node).left = self.stock;
-                        self.stock = node;
-                        self.stock_count += 1;
                         return Ok((*node).content)
                     }
                 },
-                TakeResult::Empty => {
+                memtree::TakeResult::Empty => {
                     match self.alloc_recurse(order + 1, target) {
-                        Ok(new_block) => return self.handle_new_block(new_block, order, target),
-                        Err(_) => ()
-                    }
+                        Ok(mut new_block) => return self.handle_new_block(&mut new_block, order, target),
+                        Err(AllocError::InUse) => {}
+                        Err(error) => return Err(error)
+                    };
                 }
             }
         }
     }
 
-    fn handle_new_block(&mut self, mut block: Block, order: usize, target: usize)
+    fn handle_new_block(&mut self, block: &mut Block, order: usize, target: usize)
         -> Result<Block, AllocError> {
             match block.split() {
                 Some(new_block) => {
                     if (block.order == target && target >= 12)
                         || (target < 12 && block.order == 12) {
-                            if let Err(_) = self.internal.map(&Area::new(block.addr, block.size())) {
-                                if let Err(_) = self.internal.map(&Area::new(new_block.addr, new_block.size())) {
+                            if let Err(_) = self.internal.map(&Area::new(new_block.addr, new_block.size())) {
+                                if let Err(_) = self.internal.map(&Area::new(block.addr, block.size())) {
                                     return Err(AllocError::InUse);
                                 }
-                                return Ok(new_block);
+                                return Ok(*block);
                             }
-                            if let Err(error) = self.insert_block_discard(order, &new_block) {
-                                return Err(error);
-                            }
-                            return Ok(block);
                         }
-                    if let Err(error) = self.insert_block_discard(order, &block) {
-                        return Err(error);
+                    if self.buddies[order].insert_block(block) == false {
+                        panic!("TODO: fix memory allocation");
                     }
                     return Ok(new_block);
                 },
                 None => return Err(AllocError::OutOfMemory)
             }
         }
-
-    fn insert_block_discard(&mut self, order: usize, block: &Block) -> Result<(), AllocError> {
-        match self.buddies[order].insert_block(block) {
-            true => Ok(()),
-            false => {
-                match self.stock.is_null() {
-                    false => {
-                        let node = self.stock;
-                        unsafe {
-                            self.stock = (*node).left;
-                            (*node).init(block);
-                        }
-                        self.stock_count -= 1;
-                        self.buddies[order].insert(node);
-                        Ok(())
-                    },
-                    true => {
-                        match self.alloc_recurse(self.mem_tree_node_order, self.mem_tree_node_order) {
-                            Ok(node_block) => {
-                                let new_node = node_block.addr as *mut MemTreeNode;
-                                unsafe {
-                                    (*new_node).init(block);
-                                }
-                                self.buddies[order].insert(new_node);
-                                Ok(())
-                            },
-                            Err(error) => Err(error)
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     fn get_order(&self, len: usize) -> usize {
         for i in 0..BUCKETS {

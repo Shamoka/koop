@@ -16,30 +16,30 @@ pub struct Allocator {
 }
 
 impl Allocator {
-    pub fn new(mb2: multiboot2::Info) -> Result<Allocator, AllocError> {
+    pub fn new(mb2: multiboot2::Info) -> Allocator {
         let mut allocator = Allocator {
             frame_allocator: frame::Allocator::new(mb2),
             pml4: PML4::new(&PML4_ADDR, 511),
         };
         let (new_pml4, pml4_frame) = match allocator.create_new_pml4() {
             Ok(res) => res,
-            Err(error) => return Err(error),
+            Err(error) => panic!("Unable to create a new PML4: {:?}", error)
         };
         unsafe {
             asm::x86_64::tlb::flush();
             asm::x86_64::efer::set_bit(asm::x86_64::efer::BIT_NXE);
         }
         if let Err(error) = allocator.remap_kernel(new_pml4) {
-            return Err(error);
+            panic!("Unable to rempa the kernel{:?}", error);
         }
         if let Err(error) = allocator.remap_low_memory(new_pml4) {
-            return Err(error);
+            panic!("Unable to remap low memory: {:?}", error);
         }
         unsafe {
             asm::x86_64::tlb::update(pml4_frame.base.addr);
         }
         allocator.pml4 = new_pml4;
-        Ok(allocator)
+        allocator
     }
 
     pub fn map(&mut self, area: &Area) -> Result<(), AllocError> {

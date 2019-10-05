@@ -1,448 +1,520 @@
 use crate::block::Block;
 
-use core::ops::DerefMut;
+use core::cmp::Ordering;
 
-#[derive(Copy, Clone)]
-pub struct MemTree {
-    root: *mut MemTreeNode,
-    block: Option<Block>
-}
-
-pub enum TakeResult {
-    Node(*mut MemTreeNode),
+pub enum TakeResult<'a> {
+    Node(*mut Node<'a>),
     Block(Block),
     Empty
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum Color {
     Red,
-    Black
+    Black,
 }
 
 #[derive(Copy, Clone)]
-pub struct MemTreeNode {
+pub struct Tree<'a> {
+    root: NodeType<'a>,
+    pub block: Option<Block>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Node<'a> {
     pub content: Block,
-    pub left: *mut MemTreeNode,
-    pub right: *mut MemTreeNode,
-    pub parent: *mut MemTreeNode,
+    left: NodeType<'a>,
+    right: NodeType<'a>,
+    parent: NodeType<'a>,
     color: Color
 }
 
-impl MemTree {
-    pub const fn new() -> MemTree {
-        MemTree {
-            root: 0 as *mut MemTreeNode,
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum NodeType<'a> {
+    Leaf(*mut Node<'a>),
+    Node(*mut Node<'a>),
+    Nil
+}
+
+impl<'a> NodeType<'a> {
+    unsafe fn is_node(&self) -> bool {
+        match *self {
+            NodeType::Node(_) => true,
+            _ => false
+        }
+    }
+
+    unsafe fn set_color(&mut self, new_color: Color) {
+        match *self {
+            NodeType::Node(node) => (*node).color = new_color,
+            NodeType::Leaf(_) => {
+                if let Color::Red = new_color {
+                    panic!("Trying to turn a leaf node red");
+                }
+            }
+            NodeType::Nil => panic!("Setting nil node to red")
+        }
+    }
+
+    unsafe fn ptr(&self) -> *mut Node<'a> {
+        match *self {
+            NodeType::Node(ptr) => ptr,
+            NodeType::Leaf(ptr) => ptr,
+            NodeType::Nil => 0 as *mut Node
+        }
+    }
+
+    pub unsafe fn get_color(&self) -> Color {
+        match *self {
+            NodeType::Node(node) => (*node).color,
+            NodeType::Leaf(_) => Color::Black,
+            NodeType::Nil => panic!("Color get nil")
+        }
+    }
+
+    pub unsafe fn parent_ptr(&self) -> *mut Node<'a> {
+        match *self {
+            NodeType::Node(ptr) => (*ptr).parent.ptr(),
+            NodeType::Leaf(ptr) => ptr,
+            NodeType::Nil => 0 as *mut Node
+        }
+    }
+
+    pub unsafe fn set_parent(&mut self, new_parent: &NodeType<'a>) {
+        match *self {
+            NodeType::Node(node) => (*node).parent = *new_parent,
+            NodeType::Leaf(ref mut leaf) => *leaf = new_parent.ptr(),
+            NodeType::Nil => panic!("Parent set nil")
+        }
+    }
+
+    pub unsafe fn grand_parent(&self) -> Option<&'a mut NodeType<'a>> {
+        let parent_node = self.parent_ptr();
+        match parent_node.is_null() {
+            true => None,
+            false => {
+                match (*parent_node).parent {
+                    NodeType::Node(_) => Some(&mut (*parent_node).parent),
+                    _ => None
+                }
+            }
+        }
+    }
+
+    pub unsafe fn left(&self) -> &'a mut NodeType<'a> {
+        match *self {
+            NodeType::Node(ptr) => &mut (*ptr).left,
+            _ => panic!("Accessing null ptr in memory tree: left")
+        }
+    }
+
+    pub unsafe fn right(&self) -> &'a mut NodeType<'a> {
+        match *self {
+            NodeType::Node(ptr) => &mut (*ptr).right,
+            _ => panic!("Accessing null ptr in memory tree: right")
+        }
+    }
+
+    pub unsafe fn sibling(&self) -> Option<&'a mut NodeType<'a>> {
+        let parent_node = self.parent_ptr();
+        match parent_node.is_null() {
+            true => None,
+            false => {
+                if (*parent_node).left == *self {
+                    Some(&mut (*parent_node).right)
+                } else {
+                    Some(&mut (*parent_node).left)
+                }
+            }
+        }
+    }
+
+    pub unsafe fn uncle(&self) -> Option<&'a mut NodeType<'a>> {
+        match self.grand_parent() {
+            Some(gp) => {
+                if gp.left().ptr() == self.parent_ptr() {
+                    Some(gp.right())
+                } else {
+                    Some(gp.left())
+                }
+            },
+            None => None
+        }
+    }
+
+    pub unsafe fn content(&self) -> &'a mut Block {
+        match *self {
+            NodeType::Node(ptr) => &mut (*ptr).content,
+            _ => panic!("Accessing the content of a null node in memory tree")
+        }
+    }
+
+    pub unsafe fn leftmost(&self) -> NodeType<'a> {
+        if self.left().is_node() {
+            return self.left().leftmost();
+        }
+        return *self;
+    }
+
+    pub unsafe fn bst_insert(&mut self, node: &mut NodeType<'a>) {
+        if node.content().addr < self.content().addr {
+            if self.left().is_node() {
+                return self.left().bst_insert(node);
+            } else {
+                *self.left() = *node;
+            }
+        } else if node.content().addr > self.content().addr {
+            if self.right().is_node() {
+                return self.right().bst_insert(node);
+            } else {
+                *self.right() = *node;
+            }
+        }
+        node.set_parent(self);
+        *node.left() = NodeType::Leaf(node.ptr());
+        *node.right() = NodeType::Leaf(node.ptr());
+        node.set_color(Color::Red);
+    }
+
+    unsafe fn rotate_left(&mut self) {
+        let mut new_node = *self.right();
+        let parent = match self.parent_ptr().is_null() {
+            true => NodeType::Nil,
+            false =>  NodeType::Node(self.parent_ptr())
+        };
+
+        if !new_node.is_node() {
+            panic!("Trying to rotate a leaf node");
+        }
+
+        *self.right() = *new_node.left();
+        *new_node.left() = *self;
+        self.set_parent(&new_node);
+        if self.right().is_node() {
+            self.right().set_parent(&self);
+        }
+        if parent.is_node() {
+            if *self == *parent.left() {
+                *parent.left() = new_node;
+            } else if *self == *parent.right() {
+                *parent.right() = new_node;
+            }
+        }
+        new_node.set_parent(&parent);
+    }
+
+    unsafe fn rotate_right(&mut self) {
+        let mut new_node = *self.left();
+        let parent = match self.parent_ptr().is_null() {
+            true => NodeType::Nil,
+            false =>  NodeType::Node(self.parent_ptr())
+        };
+
+        if !new_node.is_node() {
+            panic!("Trying to rotate a leaf node");
+        }
+
+        *self.left() = *new_node.right();
+        *new_node.right() = *self;
+        self.set_parent(&new_node);
+        if self.left().is_node() {
+            self.left().set_parent(&self);
+        }
+        if parent.is_node() {
+            if *self == *parent.left() {
+                *parent.left() = new_node;
+            } else if *self == *parent.right() {
+                *parent.right() = new_node;
+            }
+        }
+        new_node.set_parent(&parent);
+    }
+
+    pub unsafe fn repair(&mut self) {
+        if self.parent_ptr().is_null() {
+            return self.set_color(Color::Black);
+        }
+        if (*self.parent_ptr()).color == Color::Black {
+            return ;
+        }
+        if let Some(uncle) = self.uncle() {
+            if uncle.get_color() == Color::Red {
+                return self.repair_3();
+            }
+        }
+        self.repair_4();
+    }
+
+    unsafe fn repair_3(&mut self) {
+        let parent_ptr = self.parent_ptr();
+        if !parent_ptr.is_null() {
+            (*parent_ptr).color = Color::Black;
+            if let Some(uncle) = self.uncle() {
+                uncle.set_color(Color::Black);
+            }
+            if let Some(grand_parent) = self.grand_parent() {
+                grand_parent.set_color(Color::Red);
+                grand_parent.repair();
+            }
+        }
+    }
+
+    unsafe fn repair_4(&mut self) {
+        let parent_ptr = self.parent_ptr();
+
+        if let Some(&mut grand_parent) = self.grand_parent() {
+            let mut parent = NodeType::Node(parent_ptr);
+            if *self == *parent.right() && parent == *grand_parent.left() {
+                parent.rotate_left();
+                self.left().repair_4_2();
+            } else if *self == *parent.left() && parent == *grand_parent.right() {
+                parent.rotate_right();
+                self.right().repair_4_2();
+            } else {
+                self.repair_4_2();
+            }
+        }
+    }
+
+    unsafe fn repair_4_2(&mut self) {
+        if let Some(&mut mut grand_parent) = self.grand_parent() {
+            let mut parent = NodeType::Node(self.parent_ptr());
+            if *self == *parent.left() {
+                grand_parent.rotate_right();
+            } else {
+                grand_parent.rotate_left();
+            }
+            parent.set_color(Color::Black);
+            grand_parent.set_color(Color::Red);
+        }
+    }
+
+    pub unsafe fn delete(&mut self, key: usize) -> Option<(*mut Node<'a>, *mut Node<'a>)> {
+        match self.is_node() {
+            true => {
+                match self.content().addr.cmp(&key) {
+                    Ordering::Less => self.right().delete(key),
+                    Ordering::Greater => self.left().delete(key),
+                    Ordering::Equal => {
+                        if self.left().is_node() && self.right().is_node() {
+                            let mut leftmost = self.right().leftmost();
+                            *self.content() = *leftmost.content();
+                            leftmost.delete(self.content().addr)
+                        } else  {
+                            let child = match self.left().is_node() {
+                                true => self.left(),
+                                false => self.right()
+                            };
+                            self.replace_child(child);
+                            if self.get_color() == Color::Black {
+                                if child.get_color() == Color::Red {
+                                    child.set_color(Color::Black);
+                                } else {
+                                    child.delete_1()
+                                }
+                            }
+                            match *self {
+                                NodeType::Node(ptr) => Some((ptr, child.ptr())),
+                                NodeType::Leaf(_) => Some((self.ptr(), child.ptr())),
+                                _ => None
+                            }
+                        }
+                    }
+                }
+            },
+            false => None
+        }
+    }
+
+    unsafe fn replace_child(&mut self, child: &mut NodeType<'a>) {
+        let parent = match self.parent_ptr().is_null() {
+            true => NodeType::Nil,
+            false => NodeType::Node(self.parent_ptr())
+        };
+        child.set_parent(&parent);
+        if parent.is_node() {
+            if *parent.left() == *self {
+                if child.is_node() {
+                    *parent.left() = NodeType::Node(child.ptr());
+                } else {
+                    *parent.left() = NodeType::Leaf(parent.ptr());
+                }
+            } else {
+                if child.is_node() {
+                    *parent.right() = NodeType::Node(child.ptr());
+                } else {
+                    *parent.right() = NodeType::Leaf(parent.ptr());
+                }
+            }
+        }
+    }
+
+    unsafe fn delete_1(&mut self) {
+        if !self.parent_ptr().is_null() {
+            self.delete_2();
+        }
+    }
+
+    unsafe fn delete_2(&mut self) {
+        if let Some(&mut mut s) = self.sibling() {
+            let mut parent = NodeType::Node(self.parent_ptr());
+            if s.get_color() == Color::Red {
+                parent.set_color(Color::Red);
+                s.set_color(Color::Black);
+                if *self == *parent.left() {
+                    parent.rotate_left();
+                } else {
+                    parent.rotate_right();
+                }
+            }
+        }
+        self.delete_3();
+    }
+
+    unsafe fn delete_3(&mut self) {
+        if let Some(&mut mut s) = self.sibling() {
+            let mut parent = NodeType::Node(self.parent_ptr());
+            if parent.get_color() == Color::Black && s.get_color() == Color::Black
+                && s.right().get_color() == Color::Black && s.left().get_color() == Color::Black {
+                    s.set_color(Color::Red);
+                    parent.delete_1();
+            } else {
+                self.delete_4();
+            }
+        }
+    }
+
+    unsafe fn delete_4(&mut self) {
+        if let Some(&mut mut s) = self.sibling() {
+            let mut parent = NodeType::Node(self.parent_ptr());
+            if parent.get_color() == Color::Red && s.get_color() == Color::Black
+                && s.right().get_color() == Color::Black && s.left().get_color() == Color::Black {
+                    s.set_color(Color::Red);
+                    parent.set_color(Color::Black);
+            } else {
+                self.delete_5();
+            }
+        }
+    }
+
+    unsafe fn delete_5(&mut self) {
+        if let Some(&mut mut s) = self.sibling() {
+            if s.get_color() == Color::Black {
+                let parent = NodeType::Node(self.parent_ptr());
+                if *self == *parent.left() && s.right().get_color() == Color::Black
+                    && s.left().get_color() == Color::Red {
+                        s.set_color(Color::Red);
+                        s.left().set_color(Color::Black);
+                        s.rotate_right();
+                } else if *self == *parent.right() && s.left().get_color() == Color::Black
+                    && s.right().get_color() == Color::Red {
+                        s.set_color(Color::Red);
+                        s.right().set_color(Color::Red);
+                        s.rotate_left();
+                }
+            }
+        }
+        self.delete_6();
+    }
+
+    unsafe fn delete_6(&mut self) {
+        if let Some(&mut mut s) = self.sibling() {
+            let mut parent = NodeType::Node(self.parent_ptr());
+            s.set_color(parent.get_color());
+            parent.set_color(Color::Black);
+            if *self == *parent.left() {
+                s.right().set_color(Color::Black);
+                parent.rotate_left();
+            } else {
+                s.left().set_color(Color::Black);
+                parent.rotate_right();
+            }
+        }
+    }
+
+    pub unsafe fn inspect(&self, depth: usize) {
+        if self.is_node() {
+            self.left().inspect(depth + 1);
+            vga::println!("{}: {:?} {:?}", depth, self.get_color(), self.content());
+            self.right().inspect(depth + 1);
+        }
+    }
+}
+
+impl<'a, 'b> Tree<'a> {
+    pub const fn new() -> Tree<'a> {
+        Tree {
+            root: NodeType::Nil,
             block: None
         }
     }
 
-    pub fn inspect(&mut self) {
-        unsafe {
-            if !self.root.is_null() {
-                (*self.root).inspect()
-            }
-        }
-    }
-
     pub fn take(&mut self) -> TakeResult {
-        unsafe {
-            match self.block.take() {
-                Some(block) => TakeResult::Block(block),
-                None => {
-                    match self.root.is_null() {
-                        false => TakeResult::Node((*self.root).remove()),
-                        true => TakeResult::Empty
-                    }
-                }
-            }
+        match self.block.take() {
+            Some(block) => TakeResult::Block(block),
+            None => TakeResult::Empty
         }
     }
 
-    pub fn insert_block(&mut self, block: &Block) -> bool {
+    pub fn insert_block(&mut self, new_block: &Block) -> bool {
         match self.block {
-            Some(_) => false,
+            Some(_) => return false,
             None => {
-                self.block = Some(*block);
-                true
+                self.block = Some(*new_block);
+                return true;
             }
         }
     }
 
-    pub fn insert(&mut self, new_node: *mut MemTreeNode) {
+    pub fn delete(&mut self, key: usize) -> Option<*mut Node<'a>> {
         unsafe {
-            match self.root.is_null() {
-                false => {
-                    (*self.root).insert(new_node);
-                    (*new_node).repair();
-                    let mut new_root = new_node;
-                    while (*new_root).parent.is_null() == false {
-                        new_root = (*new_root).parent;
-                    }
-                    self.root = new_root;
+            match self.root.delete(key) {
+                Some((ret, new_root_node)) => {
+                    match new_root_node.is_null() {
+                        true => self.root = NodeType::Nil,
+                        false => {
+                            let mut new_root = NodeType::Node(new_root_node);
+                            while !new_root.parent_ptr().is_null() {
+                                new_root = NodeType::Node(new_root.parent_ptr());
+                            }
+                            self.root = new_root;
+                        }
+                    };
+                    Some(ret)
                 },
-                true => self.root = new_node
+                None => None
             }
         }
     }
 
-    pub fn find(&mut self, addr: usize) -> Option<*mut MemTreeNode> {
+    pub fn inspect(&self) {
         unsafe {
-            match self.root.is_null() {
-                false => (*self.root).find(addr),
-                true => None
-            }
-        }
-    }
-}
-
-impl MemTreeNode {
-    pub fn init(&mut self, block: &Block) {
-        self.content = *block;
-        self.left = 0 as *mut MemTreeNode;
-        self.right = 0 as *mut MemTreeNode;
-        self.parent = 0 as *mut MemTreeNode;
-        self.color = Color::Red;
-    }
-
-    pub unsafe fn inspect(&mut self) {
-        if !self.left.is_null() {
-            (*self.left).inspect();
-        }
-        vga::println!("{} {}", self.content.addr, self.content.size());
-        if !self.right.is_null() {
-            (*self.right).inspect();
-        }
-    }
-
-    pub unsafe fn remove(&mut self) -> *mut MemTreeNode {
-        if !self.left.is_null() && !self.right.is_null() {
-            let leftmost = (*self.right).find_leftmost_child();
-            self.content = (*leftmost).content;
-            return (*leftmost).remove();
-        }
-        let child: *mut MemTreeNode;
-        if !self.left.is_null() {
-            child = self.left;
-        } else {
-            child = self.right;
-        }
-        self.replace_node(child);
-        if self.color == Color::Black {
-            if (*child).color == Color::Red {
-                (*child).color = Color::Black;
+            if !self.root.is_node() {
+                vga::println!("Empty!");
             } else {
-                (*child).delete_case_1();
-            }
-        }
-        self as *mut MemTreeNode
-    }
-
-
-    pub unsafe fn find(&mut self, addr: usize) -> Option<*mut MemTreeNode> {
-        if addr == self.content.addr {
-            return Some(self as *mut MemTreeNode);
-        }
-        if addr < self.content.addr {
-            if !self.left.is_null() {
-                return (*self.left).find(addr);
-            }
-        } else if addr > self.content.addr {
-            if !self.right.is_null() {
-                return (*self.right).find(addr);
-            }
-        }
-        None
-    }
-
-    pub unsafe fn insert(&mut self, new_node: *mut MemTreeNode) {
-        if self.content.addr > (*new_node).content.addr {
-            match self.left.is_null() {
-                false => return (*self.left).insert(new_node),
-                true => self.left = new_node
-            };
-        } else {
-            match self.right.is_null() {
-                false => return (*self.right).insert(new_node),
-                true => self.right = new_node
-            };
-        }
-        (*new_node).parent = self as *mut MemTreeNode;
-    }
-
-    pub unsafe fn repair(&mut self) {
-        let uncle = self.uncle();
-        match self.parent.is_null() {
-            false => {
-                if (*self.parent).color == Color::Black {
-                    self.insert_case_2();
-                }
-                else if uncle.is_null() == false && (*uncle).color == Color::Red {
-                    self.insert_case_3();
-                }
-                else {
-                    self.insert_case_4();
-                }
-            },
-            true => self.insert_case_1()
-        }
-    }
-
-    unsafe fn replace_node(&mut self, child: *mut MemTreeNode) {
-        (*child).parent = self.parent;
-        if !self.parent.is_null() {
-            if self as *mut MemTreeNode == (*self.parent).left {
-                (*self.parent).left = child;
-            } else if self as *mut MemTreeNode == (*self.parent).right {
-                (*self.parent).right = child;
+                self.root.inspect(0);
             }
         }
     }
 
-    unsafe fn delete_case_1(&mut self) {
-        if !self.parent.is_null() {
-            self.delete_case_2();
-        }
-    }
-
-    unsafe fn delete_case_2(&mut self) {
-        let s = self.sibling();
-        let parent = self.parent;
-        let mut right = 0 as *mut MemTreeNode;
-        let mut left = 0 as *mut MemTreeNode;
-        if !parent.is_null() {
-            right = (*parent).right;
-            left = (*parent).left;
-        }
-
-        if !s.is_null() && (*s).color == Color::Red  {
-            (*s).color = Color::Black;
-            (*parent).color = Color::Red;
-            if left == self as *mut MemTreeNode {
-                (*parent).rotate_left();
-            } else if right == self as *mut MemTreeNode {
-                (*parent).rotate_right();
-            }
-        }
-        self.delete_case_3();
-    }
-
-    unsafe fn delete_case_3(&mut self) {
-        let s = self.sibling();
-        let parent = self.parent;
-        let mut right_color = Color::Black;
-        let mut left_color = Color::Black;
-
-        if !s.is_null() {
-            if (*s).right.is_null() == false {
-                right_color = (*(*s).right).color;
-            }
-            if !(*s).left.is_null() {
-                left_color = (*(*s).left).color;
-            }
-        }
-
-        if !parent.is_null() && !s.is_null() {
-            if (*parent).color == Color::Black && (*s).color == Color::Black
-                && left_color == Color::Black && right_color == Color::Black {
-                    (*s).color = Color::Red;
-                    (*parent).delete_case_1();
-                } else {
-                    self.delete_case_4();
-            }
-        }
-    }
-
-    unsafe fn delete_case_4(&mut self) {
-        let s = self.sibling();
-        let parent = self.parent;
-        let right_color = (*(*s).right).color;
-        let left_color = (*(*s).left).color;
-
-        if (*parent).color == Color::Red && (*s).color == Color::Black
-            && left_color == Color::Black && right_color == Color::Black {
-                (*s).color = Color::Red;
-                (*parent).color = Color::Black;
+    pub fn insert(&mut self, node: *mut Node<'a>) {
+        unsafe {
+            let mut new_node = NodeType::Node(node);
+            if self.root.is_node() {
+                self.root.bst_insert(&mut new_node);
             } else {
-                self.delete_case_5();
-        }
-    }
-
-    unsafe fn delete_case_5(&mut self) {
-        let s = self.sibling();
-        let parent = self.parent;
-        let sright = (*s).right;
-        let sleft = (*s).left;
-        let pright = (*parent).right;
-        let pleft = (*parent).left;
-
-        if (*s).color == Color::Black {
-            if pleft == self as *mut MemTreeNode && (*sright).color == Color::Black
-                && (*sleft).color == Color::Red {
-                    (*s).color = Color::Red;
-                    (*sleft).color = Color::Black;
-                    (*s).rotate_right();
-                } else if pright == self as *mut MemTreeNode && (*sleft).color == Color::Black
-                    && (*sright).color == Color::Red  {
-                        (*s).color = Color::Red;
-                        (*sright).color = Color::Black;
-                        (*s).rotate_left();
-                }
-        }
-        self.delete_case_6();
-    }
-
-    unsafe fn delete_case_6(&mut self) {
-        let s = self.sibling();
-        let parent = self.parent;
-        let sright = (*s).right;
-        let sleft = (*s).left;
-        let pleft = (*parent).left;
-
-        (*s).color = (*parent).color;
-        (*parent).color = Color::Black;
-        if pleft == self as *mut MemTreeNode {
-            (*sright).color = Color::Black;
-            (*parent).rotate_left();
-        } else {
-            (*sleft).color = Color::Black;
-            (*parent).rotate_right();
-        }
-    }
-
-    unsafe fn insert_case_1(&mut self) {
-        if self.parent.is_null() {
-            self.color = Color::Black;
-        }
-    }
-
-    unsafe fn insert_case_2(&mut self) {
-        return;
-    }
-
-    unsafe fn insert_case_3(&mut self) {
-        let parent = self.parent;
-        let uncle = self.uncle();
-        let grand_parent = self.grand_parent();
-
-        (*parent).color = Color::Black;
-        (*uncle).color = Color::Black;
-        (*grand_parent).color = Color::Red;
-        (*grand_parent).repair();
-    }
-
-    unsafe fn insert_case_4(&mut self) {
-        let parent = self.parent;
-        let mut n = self as *mut MemTreeNode;
-
-        let mut grand_parent = self.grand_parent();
-        if !grand_parent.is_null() {
-            if (*parent).right == self as *mut MemTreeNode && parent == (*grand_parent).left {
-                (*parent).rotate_left();
-                n = self.left;
-            } else if (*parent).left == self as *mut MemTreeNode && parent == (*grand_parent).right {
-                (*parent).rotate_right();
-                n = self.right;
+                new_node.set_parent(&NodeType::Nil);
+                *new_node.left() =  NodeType::Leaf(node);
+                *new_node.right() = NodeType::Leaf(node);
+                new_node.set_color(Color::Black);
+                self.root = new_node;
             }
-        }
-        if !n.is_null() {
-            (*n).insert_case_4_step_2();
-        }
-    }
-
-    unsafe fn insert_case_4_step_2(&mut self) {
-        let parent = self.parent;
-        
-        if !parent.is_null() {
-            let grand_parent = (*parent).parent;
-            if !grand_parent.is_null() {
-                if (*parent).left == self as *mut MemTreeNode {
-                    (*grand_parent).rotate_right();
-                } else {
-                    (*grand_parent).rotate_left();
-                }
-                (*grand_parent).color = Color::Red;
+            new_node.repair();
+            let mut new_root = NodeType::Node(new_node.ptr());
+            while !new_root.parent_ptr().is_null() {
+                new_root = NodeType::Node(new_root.parent_ptr());
             }
-            (*parent).color = Color::Black;
-        }
-    }
-
-    unsafe fn find_leftmost_child(&mut self) -> *mut MemTreeNode {
-        if self.left.is_null() {
-            self as *mut MemTreeNode
-        } else {
-            (*self.left).find_leftmost_child()
-        }
-    }
-
-    unsafe fn rotate_left(&mut self) {
-        let new_node = self.right;
-        let parent = self.parent;
-
-        self.right = (*new_node).left;
-        (*new_node).left = self as *mut MemTreeNode;
-        self.parent = new_node;
-        if !self.right.is_null() {
-            (*self.right).parent = self as *mut MemTreeNode;
-        }
-        if !parent.is_null() {
-            self.rotate_common(parent, new_node);
-        }
-        (*new_node).parent = parent;
-    }
-
-    unsafe fn rotate_right(&mut self) {
-        let new_node = self.left;
-        let parent = self.parent;
-
-        self.left = (*new_node).right;
-        (*new_node).right = self as *mut MemTreeNode;
-        self.parent = new_node;
-        if !self.left.is_null() {
-            (*self.left).parent = self as *mut MemTreeNode;
-        }
-        if !parent.is_null() {
-            self.rotate_common(parent, new_node);
-        }
-        (*new_node).parent = parent;
-    }
-
-    unsafe fn rotate_common(&mut self, parent: *mut MemTreeNode, new_node: *mut MemTreeNode) {
-        let pleft = (*parent).left;
-        let pright = (*parent).right;
-        if pleft == self as *mut MemTreeNode {
-            (*parent).left = new_node;
-        } else if pright == self as *mut MemTreeNode {
-            (*parent).right = new_node;
-        }
-    }
-
-    unsafe fn grand_parent(&self) -> *mut MemTreeNode {
-        if !self.parent.is_null() {
-            (*self.parent).parent
-        } else {
-            0 as *mut MemTreeNode
-        }
-    }
-
-    unsafe fn sibling(&mut self) -> *mut MemTreeNode {
-        match self.parent.is_null() {
-            false => {
-                if (*self.parent).left == self as *mut MemTreeNode {
-                    return (*self.parent).right;
-                }
-                else {
-                    return (*self.parent).left;
-                }
-            },
-            true => 0 as *mut MemTreeNode
-        }
-    }
-
-    unsafe fn uncle(&mut self) -> *mut MemTreeNode {
-        match self.parent.is_null() {
-            false => (*self.parent).sibling(),
-            true => 0 as *mut MemTreeNode
+            self.root = new_root;
         }
     }
 }
