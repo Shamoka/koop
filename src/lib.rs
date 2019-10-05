@@ -10,24 +10,28 @@ fn panic(info: &PanicInfo) -> ! {
     loop {}
 }
 
+unsafe fn alloc_test(tab: &mut [*mut u8; 2000]) {
+    for i in 0..2000 {
+        let size = i * 2 + 10;
+        tab[i] = ALLOCATOR.memalloc(size);
+        if tab[i].is_null() {
+            panic!("Alloc number {} failed", i);
+        }
+    }
+    for i in 0..2000 {
+        ALLOCATOR.memdealloc(tab[i]);
+    }
+}
+
 #[no_mangle]
 pub fn koop(mb2: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
     unsafe {
         ALLOCATOR.init(multiboot2::Info::new(mb2));
-        let something = ALLOCATOR.memalloc(1000000);
-        let mut ptrs = [0 as *mut u8; 1000];
-        for i in 0..1000 {
-            let size = i * 2 + 10;
-            ptrs[i] = ALLOCATOR.memalloc(size);
-            if ptrs[i].is_null() {
-                panic!("Alloc number {} failed", i);
-            }
+        let mut tab = [0 as *mut u8; 2000];
+        for _ in 0..10 {
+            alloc_test(&mut tab);
         }
-        for i in 0..1000 {
-            ALLOCATOR.memdealloc(ptrs[i]);
-        }
-        ALLOCATOR.memdealloc(something);
         ALLOCATOR.inspect();
     }
     println!("OK");

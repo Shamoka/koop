@@ -2,8 +2,6 @@ use crate::block::Block;
 
 use core::cmp::Ordering;
 
-use core::mem::size_of;
-
 pub enum TakeResult<'a> {
     Node(*mut Node<'a>),
     Block(Block),
@@ -25,14 +23,14 @@ pub struct Tree<'a> {
 #[derive(Debug, PartialEq)]
 pub struct Node<'a> {
     pub content: Block,
-    left: NodeType<'a>,
+    pub left: NodeType<'a>,
     right: NodeType<'a>,
     parent: NodeType<'a>,
     color: Color
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-enum NodeType<'a> {
+pub enum NodeType<'a> {
     Leaf(*mut Node<'a>),
     Node(*mut Node<'a>),
     Nil
@@ -292,6 +290,7 @@ impl<'a> NodeType<'a> {
     }
 
     pub unsafe fn delete(&mut self, key: usize) -> Option<(*mut Node<'a>, *mut Node<'a>)> {
+        let ret = self.ptr();
         match self.is_node() {
             true => {
                 match self.content().addr.cmp(&key) {
@@ -315,11 +314,7 @@ impl<'a> NodeType<'a> {
                                     child.delete_1()
                                 }
                             }
-                            match *self {
-                                NodeType::Node(ptr) => Some((ptr, child.ptr())),
-                                NodeType::Leaf(_) => Some((self.ptr(), child.ptr())),
-                                _ => None
-                            }
+                            Some((ret, child.ptr()))
                         }
                     }
                 }

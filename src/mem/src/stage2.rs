@@ -12,6 +12,7 @@ pub struct Allocator<'a> {
     internal: stage1::Allocator,
     buddies: [memtree::Tree<'a>; BUCKETS],
     blocks: memtree::Tree<'a>,
+    stock: *mut memtree::Node<'a>,
     mem_tree_node_order: usize
 }
 
@@ -21,6 +22,7 @@ impl<'a> Allocator<'a> {
             internal: stage1::Allocator::new(mb2),
             buddies: [memtree::Tree::new(); BUCKETS],
             blocks: memtree::Tree::new(),
+            stock: 0 as *mut memtree::Node,
             mem_tree_node_order: 0
         };
         while 1 << allocator.mem_tree_node_order < size_of::<memtree::Node>() {
@@ -38,8 +40,14 @@ impl<'a> Allocator<'a> {
         let mut block = Block::new(ptr as usize, 0);
         block.remove_sign();
         match self.blocks.delete(block.addr) {
-            Some(_node) => {
-                // TODO: pool nodes
+            Some(node) => {
+                unsafe {
+                    (*node).left = match self.stock.is_null() {
+                        true => memtree::NodeType::Nil,
+                        false => memtree::NodeType::Node(self.stock)
+                    };
+                    self.stock = node;
+                }
                 self.dealloc_recurse(&mut block);
             },
             None => panic!("Block {:?} not found in dealloc", block)
@@ -58,14 +66,16 @@ impl<'a> Allocator<'a> {
             match self.buddies[block.order].delete(block.buddy_addr()) {
                 Some(buddy_node) => {
                     block.merge(&(*buddy_node).content);
-                    // TODO: pool nodes
+                    (*buddy_node).left = match self.stock.is_null() {
+                        true => memtree::NodeType::Nil,
+                        false => memtree::NodeType::Node(self.stock)
+                    };
+                    self.stock = buddy_node;
                     self.dealloc_recurse(block);
                 },
                 None => {
-                    match self.alloc_recurse(self.mem_tree_node_order, self.mem_tree_node_order) {
-                        Ok(mut node_block) => {
-                            node_block.add_sign();
-                            let new_node: *mut memtree::Node<'a> = node_block.addr as *mut memtree::Node;
+                    match self.alloc_node() {
+                        Ok(mut new_node) => {
                             (*new_node).content = *block;
                             self.buddies[block.order].insert(new_node);
                         },
@@ -81,14 +91,12 @@ impl<'a> Allocator<'a> {
             return 0 as *mut u8;
         }
         let target = self.get_order(len);
-        match self.alloc_recurse(self.mem_tree_node_order, self.mem_tree_node_order) {
-            Ok(mut node_block) => {
+        match self.alloc_node() {
+            Ok(new_node) => {
                 match self.alloc_recurse(target, target) {
                     Ok(mut block) => {
                         block.remove_sign();
-                        node_block.add_sign();
                         unsafe {
-                            let new_node: *mut memtree::Node<'a> = node_block.addr as *mut memtree::Node;
                             (*new_node).content = block;
                             self.blocks.insert(new_node)
                         }
@@ -99,6 +107,30 @@ impl<'a> Allocator<'a> {
                 }
             },
             Err(_) => 0 as *mut u8
+        }
+    }
+
+    fn alloc_node(&mut self) -> Result<*mut memtree::Node<'a>, AllocError> {
+        unsafe {
+            match self.stock.is_null() {
+                false => {
+                    let ret = self.stock;
+                    self.stock = match (*ret).left {
+                        memtree::NodeType::Node(ptr) => ptr,
+                        _ => 0 as *mut memtree::Node<'a>
+                    };
+                    Ok(ret)
+                },
+                true => {
+                    match self.alloc_recurse(self.mem_tree_node_order, self.mem_tree_node_order) {
+                        Ok(mut block) => {
+                            block.add_sign();
+                            Ok(block.addr as *mut memtree::Node<'a>)
+                        },
+                        Err(error) => Err(error)
+                    }
+                }
+            }
         }
     }
 
