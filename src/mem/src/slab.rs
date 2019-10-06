@@ -103,7 +103,9 @@ impl<T: Sized> Node<T> {
         let addr = self as *mut Node<T>;
         if let Some((left_index, right_index)) = self.children(index, cap) {
             self.count = (*addr.offset((left_index - index) as isize)).count() +
-                (*addr.offset((right_index - index) as isize)).count();
+                (*addr.offset((right_index - index) as isize)).count() + 1;
+        } else {
+            self.count = 1;
         }
         self.increment_count(index);
     }

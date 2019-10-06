@@ -140,6 +140,13 @@ impl<'a> Allocator<'a> {
                 },
                 memtree::TakeResult::Node(node) => {
                     unsafe {
+                        let block = (*node).content;
+                        if (block.order == target && target >= 12)
+                            || (target < 12 && block.order == 12) {
+                                if let Err(_) = self.internal.map(&Area::new(block.addr, block.size())) {
+                                    return self.alloc_recurse(order, target);
+                                }
+                            }
                         return Ok((*node).content)
                     }
                 },

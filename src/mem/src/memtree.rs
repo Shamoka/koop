@@ -438,20 +438,55 @@ impl<'a> NodeType<'a> {
             self.right().inspect(depth + 1);
         }
     }
+
+    pub unsafe fn leaf(&self) -> NodeType<'a> {
+        match self.left().is_node() {
+            true => self.left().leaf(),
+            false => {
+                match self.right().is_node() {
+                    true => self.right().leaf(),
+                    false => *self
+                }
+            }
+        }
+    }
 }
 
 impl<'a, 'b> Tree<'a> {
     pub const fn new() -> Tree<'a> {
         Tree {
             root: NodeType::Nil,
-            block: None
+            block: None,
         }
     }
 
-    pub fn take(&mut self) -> TakeResult {
+    pub fn take(&mut self) -> TakeResult<'a> {
         match self.block.take() {
             Some(block) => TakeResult::Block(block),
-            None => TakeResult::Empty
+            None => {
+                match self.root {
+                    NodeType::Nil => TakeResult::Empty,
+                    NodeType::Node(_) => {
+                        unsafe {
+                            let mut target = self.root.leaf();
+                            match target {
+                                NodeType::Node(_) => {
+                                    if let Some(ret) = self.delete_node(&mut target) {
+                                        return TakeResult::Node(ret);
+                                    }
+                                    return TakeResult::Empty;
+                                },
+                                _ => {}
+                            }
+                            match self.delete(self.root.content().addr) {
+                                Some(node) => TakeResult::Node(node),
+                                None => TakeResult::Empty
+                            }
+                        }
+                    }
+                    _ => TakeResult::Empty
+                }
+            }
         }
     }
 
@@ -461,6 +496,27 @@ impl<'a, 'b> Tree<'a> {
             None => {
                 self.block = Some(*new_block);
                 return true;
+            }
+        }
+    }
+
+    pub fn delete_node(&mut self, node: *mut NodeType<'a>) -> Option<*mut Node<'a>>{
+        unsafe {
+            match (*node).delete((*node).content().addr) {
+                Some((ret, new_root_node)) => {
+                    match new_root_node.is_null() {
+                        true => self.root = NodeType::Nil,
+                        false => {
+                            let mut new_root = NodeType::Node(new_root_node);
+                            while !new_root.parent_ptr().is_null() {
+                                new_root = NodeType::Node(new_root.parent_ptr());
+                            }
+                            self.root = new_root;
+                        }
+                    };
+                    Some(ret)
+                },
+                None => None
             }
         }
     }
