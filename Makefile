@@ -56,7 +56,7 @@ $(ISO):		$(KERNEL) $(GRUBDIR)/$(GRUB_CFG)
 
 
 run:
-	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_OPT) -d int -no-reboot
+	qemu-system-x86_64 --enable-kvm -cdrom $(ISO) $(QEMU_OPT) -d int -no-reboot
 
 release: RELEASE= --release
 release: $(ISO)
