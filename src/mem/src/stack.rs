@@ -13,6 +13,15 @@ struct Node {
     pub next: *mut Node
 }
 
+impl Node {
+    pub unsafe fn count(&self) -> usize {
+        match self.next.is_null() {
+            true => 1,
+            false => 1 + (*self.next).count()
+        }
+    }
+}
+
 impl Stack {
     pub const fn new() -> Stack {
         Stack {
@@ -62,6 +71,19 @@ impl Stack {
                 (*node).next = self.pool;
                 self.pool = node;
             }
+        }
+    }
+
+    pub fn inspect(&self) {
+        unsafe {
+            match self.root.is_null() {
+                true => vga::println!("frame stack is empty"),
+                false => vga::println!("Frame stack has {} nodes", (*self.root).count())
+            };
+            match self.pool.is_null() {
+                true => vga::println!("frame stack poolis empty"),
+                false => vga::println!("Frame stack pool has {} nodes", (*self.pool).count())
+            };
         }
     }
 }

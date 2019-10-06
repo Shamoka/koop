@@ -130,12 +130,12 @@ macro_rules! impl_table_level {
                     let i = addr.get_table_index(self.level);
                     let current_entry = unsafe { Entry::from_entry((*self.entries)[i]) };
                     match current_entry.unused() {
-                        true => {
+                        false => {
                             let frame = frame::Frame::new(current_entry.addr);
                             self.set_entry(i, Entry::new(0, 0));
                             Ok(frame)
                         }
-                        false => Err(AllocError::InUse)
+                        true => Err(AllocError::InvalidAddr)
                     }
             }
         }

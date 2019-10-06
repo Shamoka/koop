@@ -12,6 +12,14 @@ impl Block {
         }
     }
 
+    pub fn should_map(&self, order: usize, target: usize) -> bool {
+        if (order == target && target >= 12)
+            || (target < 12 && order == 12) {
+                return true
+        }
+        false
+    }
+
     pub fn add_sign(&mut self) {
         if self.addr & (1 << 47) == 0 {
             self.addr &= 0o000000_777_777_777_777_7777;
@@ -33,6 +41,9 @@ impl Block {
     }
 
     pub fn merge(&mut self, other: &Block) {
+        if self.addr ^ self.size() != other.addr {
+            panic!("Merging non buddy blocks {:?} {:?}", self, other);
+        }
         self.order += 1;
         if self.addr > other.addr {
             self.addr = other.addr;
@@ -46,7 +57,7 @@ impl Block {
         self.order -= 1;
         Some(Block {
             order: self.order,
-            addr: self.addr + self.size()
+            addr: self.buddy_addr()
         })
     }
 }

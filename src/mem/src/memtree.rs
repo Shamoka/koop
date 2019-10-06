@@ -299,8 +299,10 @@ impl<'a> NodeType<'a> {
                     Ordering::Equal => {
                         if self.left().is_node() && self.right().is_node() {
                             let mut leftmost = self.right().leftmost();
+                            let tmp = *self.content();
                             *self.content() = *leftmost.content();
-                            leftmost.delete(self.content().addr)
+                            *leftmost.content() = tmp;
+                            leftmost.delete(tmp.addr)
                         } else  {
                             let child = match self.left().is_node() {
                                 true => self.left(),
@@ -465,7 +467,6 @@ impl<'a, 'b> Tree<'a> {
             Some(block) => TakeResult::Block(block),
             None => {
                 match self.root {
-                    NodeType::Nil => TakeResult::Empty,
                     NodeType::Node(_) => {
                         unsafe {
                             let mut target = self.root.leaf();
@@ -476,11 +477,7 @@ impl<'a, 'b> Tree<'a> {
                                     }
                                     return TakeResult::Empty;
                                 },
-                                _ => {}
-                            }
-                            match self.delete(self.root.content().addr) {
-                                Some(node) => TakeResult::Node(node),
-                                None => TakeResult::Empty
+                                _ => return TakeResult::Empty
                             }
                         }
                     }

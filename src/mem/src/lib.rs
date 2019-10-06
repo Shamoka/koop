@@ -9,7 +9,7 @@ mod entry;
 mod stage1;
 mod stage2;
 mod memtree;
-mod block;
+pub mod block;
 mod slab;
 mod stack;
 
@@ -24,5 +24,5 @@ pub enum AllocError {
     InUse,
     InvalidAddr,
     Forbidden,
-    InvalidInit
+    InvalidInit,
 }

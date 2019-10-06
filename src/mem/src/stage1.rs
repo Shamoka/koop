@@ -7,6 +7,7 @@ use crate::frame;
 use crate::table::{TableLevel, PML4};
 use crate::AllocError;
 use crate::UPPER_MEMORY_BOUND;
+use crate::block::Block;
 
 const NEW_PML4: Addr = Addr::new(0xdeadbeef000);
 
@@ -46,7 +47,8 @@ impl Allocator {
         self.pml4.unmap_frame(addr)
     }
 
-    pub fn map(&mut self, area: &Area) -> Result<(), AllocError> {
+    pub fn map(&mut self, block: &Block) -> Result<(), AllocError> {
+        let area = Area::new(block.addr, block.size());
         for page in area.pages() {
             match self.frame_allocator.alloc() {
                 Ok(frame) => {

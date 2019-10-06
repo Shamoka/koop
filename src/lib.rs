@@ -17,6 +17,7 @@ unsafe fn alloc_test(tab: &mut [*mut u8; 2000]) {
         if tab[i].is_null() {
             panic!("Alloc number {} failed", i);
         }
+        *(tab[i] as *mut u8) = 42;
     }
     for i in 0..2000 {
         ALLOCATOR.memdealloc(tab[i]);
@@ -29,7 +30,7 @@ pub fn koop(mb2: usize) -> ! {
     unsafe {
         ALLOCATOR.init(multiboot2::Info::new(mb2));
         let mut tab = [0 as *mut u8; 2000];
-        for _ in 0..200 {
+        for _ in 0..1000 {
             alloc_test(&mut tab);
         }
         ALLOCATOR.inspect();
