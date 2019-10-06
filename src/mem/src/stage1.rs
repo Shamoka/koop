@@ -11,7 +11,7 @@ use crate::UPPER_MEMORY_BOUND;
 const NEW_PML4: Addr = Addr::new(0xdeadbeef000);
 
 pub struct Allocator {
-    frame_allocator: frame::Allocator,
+    pub frame_allocator: frame::Allocator,
     pml4: PML4,
 }
 
@@ -40,6 +40,10 @@ impl Allocator {
         }
         allocator.pml4 = new_pml4;
         allocator
+    }
+
+    pub fn unmap(&mut self, addr: &Addr) -> Result<frame::Frame, AllocError> {
+        self.pml4.unmap_frame(addr)
     }
 
     pub fn map(&mut self, area: &Area) -> Result<(), AllocError> {

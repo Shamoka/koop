@@ -11,6 +11,7 @@ mod stage2;
 mod memtree;
 mod block;
 mod slab;
+mod stack;
 
 pub mod addr;
 pub mod area;

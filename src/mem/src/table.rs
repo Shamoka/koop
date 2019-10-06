@@ -12,6 +12,8 @@ pub trait TableLevel {
                  entry: Entry,
                  frame_allocator: &mut frame::Allocator)
         -> Result<(), AllocError>;
+
+    fn unmap_frame(&mut self, addr: &Addr) -> Result<frame::Frame, AllocError>;
 }
 
 macro_rules! table_struct {
@@ -87,6 +89,21 @@ macro_rules! impl_table_level {
                     }
                     down_level.map_frame(addr, entry, frame_allocator)
                 }
+
+            fn unmap_frame(&mut self, addr: &Addr) -> Result<frame::Frame, AllocError> {
+                let i = addr.get_table_index(self.level);
+                let current_entry = unsafe { Entry::from_entry((*self.entries)[i]) };
+                if current_entry.unused() {
+                    return Err(AllocError::InvalidAddr);
+                }
+                else if current_entry.flags & entry::FLAG_WRITABLE == 0 
+                    || current_entry.flags & entry::FLAG_PRESENT == 0 {
+                        return Err(AllocError::Forbidden);
+                }
+                let mut down_level = Self::DownLevel::new(
+                    &addr.get_table_addr(self.level - 1, self.base), self.base);
+                down_level.unmap_frame(addr)
+            }
         }
     };
     ($T:tt) => {
@@ -104,6 +121,19 @@ macro_rules! impl_table_level {
                         true => {
                             self.set_entry(i, entry);
                             Ok(())
+                        }
+                        false => Err(AllocError::InUse)
+                    }
+            }
+
+            fn unmap_frame(&mut self, addr: &Addr) -> Result<frame::Frame, AllocError> {
+                    let i = addr.get_table_index(self.level);
+                    let current_entry = unsafe { Entry::from_entry((*self.entries)[i]) };
+                    match current_entry.unused() {
+                        true => {
+                            let frame = frame::Frame::new(current_entry.addr);
+                            self.set_entry(i, Entry::new(0, 0));
+                            Ok(frame)
                         }
                         false => Err(AllocError::InUse)
                     }

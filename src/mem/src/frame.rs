@@ -1,5 +1,7 @@
 use crate::addr::Addr;
 use crate::AllocError;
+use crate::stack::Stack;
+use crate::block::Block;
 
 use multiboot2;
 
@@ -29,6 +31,7 @@ pub struct Allocator {
     kernel_end: usize,
     memory_size: usize,
     free_base: Addr,
+    frame_stack: Stack,
     pub mb2: multiboot2::Info
 }
 
@@ -50,23 +53,37 @@ impl Allocator {
             kernel_end: kend as usize,
             memory_size: mem_size as usize,
             free_base: Addr::new(super::UPPER_MEMORY_BOUND),
+            frame_stack: Stack::new(),
             mb2: mb2
         }
     }
 
     pub fn alloc(&mut self) -> Result<Frame, AllocError> {
-        loop {
-            let frame = Frame::new(self.free_base.addr);
-            self.free_base.addr += FRAME_SIZE;
-            if frame.base.addr >= self.kernel_start && frame.base.addr <= self.kernel_end {
-                continue;
-            } else if frame.base.addr < super::UPPER_MEMORY_BOUND {
-                continue;
-            } else if frame.base.addr > self.memory_size {
-                return Err(AllocError::OutOfMemory);
-            } else {
-                return Ok(frame);
+        match self.frame_stack.pop() {
+            Some(frame) => Ok(frame),
+            None => {
+                loop {
+                    let frame = Frame::new(self.free_base.addr);
+                    self.free_base.addr += FRAME_SIZE;
+                    if frame.base.addr >= self.kernel_start && frame.base.addr <= self.kernel_end {
+                        continue;
+                    } else if frame.base.addr < super::UPPER_MEMORY_BOUND {
+                        continue;
+                    } else if frame.base.addr > self.memory_size {
+                        return Err(AllocError::OutOfMemory);
+                    } else {
+                        return Ok(frame);
+                    }
+                }
             }
         }
+    }
+
+    pub fn dealloc(&mut self, frame: Frame) -> bool {
+        self.frame_stack.push(frame)
+    }
+
+    pub fn pool(&mut self, block: &Block) {
+        self.frame_stack.pool(block);
     }
 }

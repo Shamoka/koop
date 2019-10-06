@@ -44,31 +44,56 @@ impl<'a> Allocator<'a> {
             Some(node) => {
                 unsafe {
                     if self.node_slab.give(node) == false {
-                        self.dealloc_recurse(&mut Block::new(node as usize, self.node_slab.order));
+                        self.dealloc_recurse(&mut Block::new(node as usize, self.node_slab.order), true);
                     }
                 }
-                self.dealloc_recurse(&mut block);
+                if block.order > 12 {
+                    self.dealloc_frame(&block);
+                    self.dealloc_recurse(&mut block, false);
+                } else {
+                    self.dealloc_recurse(&mut block, true);
+                }
             },
             None => panic!("Block {:?} not found in dealloc", block)
         }
     }
 
-    fn dealloc_recurse(&mut self, block: &mut Block) {
+    fn dealloc_frame(&mut self, block: &Block) {
+        let area = Area::new(block.addr, block.size());
+        for addr in area.pages() {
+            match self.internal.unmap(&addr) {
+                Ok(frame) => {
+                    if let false = self.internal.frame_allocator.dealloc(frame) {
+                        if let Ok(frame_block) = self.alloc_recurse(12, 12) {
+                            self.internal.frame_allocator.pool(&frame_block);
+                        }
+                    }
+                },
+                Err(error) => panic!("Invalid unmap {:?}", error)
+            }
+        }
+    }
+
+    fn dealloc_recurse(&mut self, block: &mut Block, unmap_frames: bool) {
         unsafe {
             if let Some(buddies_block) = self.buddies[block.order].block {
                 if block.buddy_addr() == buddies_block.addr {
                     block.merge(&buddies_block);
+                    if unmap_frames && block.order == 12 {
+                        self.dealloc_frame(&block);
+                    }
                     self.buddies[block.order - 1].block = None;
-                    return self.dealloc_recurse(block);
+                    return self.dealloc_recurse(block, unmap_frames);
                 }
             }
             match self.buddies[block.order].delete(block.buddy_addr()) {
                 Some(buddy_node) => {
                     block.merge(&(*buddy_node).content);
                     if self.node_slab.give(buddy_node) == false {
-                        self.dealloc_recurse(&mut Block::new(buddy_node as usize, self.node_slab.order));
+                        self.dealloc_recurse(&mut Block::new(buddy_node as usize, self.node_slab.order),
+                        unmap_frames);
                     }
-                    self.dealloc_recurse(block);
+                    self.dealloc_recurse(block, unmap_frames);
                 },
                 None => {
                     match self.alloc_node() {
