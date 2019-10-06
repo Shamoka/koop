@@ -3,8 +3,7 @@ use crate::AllocError;
 use crate::area::Area;
 use crate::block::Block;
 use crate::memtree;
-
-use core::mem::size_of;
+use crate::slab::Slab;
 
 const BUCKETS: usize = 48;
 
@@ -12,8 +11,7 @@ pub struct Allocator<'a> {
     internal: stage1::Allocator,
     buddies: [memtree::Tree<'a>; BUCKETS],
     blocks: memtree::Tree<'a>,
-    stock: *mut memtree::Node<'a>,
-    mem_tree_node_order: usize
+    node_slab: Slab<memtree::Node<'a>>
 }
 
 impl<'a> Allocator<'a> {
@@ -22,13 +20,16 @@ impl<'a> Allocator<'a> {
             internal: stage1::Allocator::new(mb2),
             buddies: [memtree::Tree::new(); BUCKETS],
             blocks: memtree::Tree::new(),
-            stock: 0 as *mut memtree::Node,
-            mem_tree_node_order: 0
+            node_slab: Slab::new()
         };
-        while 1 << allocator.mem_tree_node_order < size_of::<memtree::Node>() {
-            allocator.mem_tree_node_order += 1;
-        }
         allocator.buddies[BUCKETS - 1].insert_block(&Block::new(0, BUCKETS - 1));
+        if let Ok(slab_block) = allocator.alloc_recurse(21, 21) {
+            unsafe {
+                allocator.node_slab.init(&slab_block);
+            }
+        } else {
+            panic!("Cannot create node slab");
+        }
         allocator
     }
 
@@ -42,11 +43,9 @@ impl<'a> Allocator<'a> {
         match self.blocks.delete(block.addr) {
             Some(node) => {
                 unsafe {
-                    (*node).left = match self.stock.is_null() {
-                        true => memtree::NodeType::Nil,
-                        false => memtree::NodeType::Node(self.stock)
-                    };
-                    self.stock = node;
+                    if self.node_slab.give(node) == false {
+                        self.dealloc_recurse(&mut Block::new(node as usize, self.node_slab.order));
+                    }
                 }
                 self.dealloc_recurse(&mut block);
             },
@@ -66,11 +65,9 @@ impl<'a> Allocator<'a> {
             match self.buddies[block.order].delete(block.buddy_addr()) {
                 Some(buddy_node) => {
                     block.merge(&(*buddy_node).content);
-                    (*buddy_node).left = match self.stock.is_null() {
-                        true => memtree::NodeType::Nil,
-                        false => memtree::NodeType::Node(self.stock)
-                    };
-                    self.stock = buddy_node;
+                    if self.node_slab.give(buddy_node) == false {
+                        self.dealloc_recurse(&mut Block::new(buddy_node as usize, self.node_slab.order));
+                    }
                     self.dealloc_recurse(block);
                 },
                 None => {
@@ -112,23 +109,15 @@ impl<'a> Allocator<'a> {
 
     fn alloc_node(&mut self) -> Result<*mut memtree::Node<'a>, AllocError> {
         unsafe {
-            match self.stock.is_null() {
-                false => {
-                    let ret = self.stock;
-                    self.stock = match (*ret).left {
-                        memtree::NodeType::Node(ptr) => ptr,
-                        _ => 0 as *mut memtree::Node<'a>
-                    };
-                    Ok(ret)
-                },
-                true => {
-                    match self.alloc_recurse(self.mem_tree_node_order, self.mem_tree_node_order) {
-                        Ok(mut block) => {
-                            block.add_sign();
-                            Ok(block.addr as *mut memtree::Node<'a>)
-                        },
-                        Err(error) => Err(error)
-                    }
+            if let Some(node) = self.node_slab.get() {
+                Ok(node)
+            } else {
+                match self.alloc_recurse(self.node_slab.order, self.node_slab.order) {
+                    Ok(mut block) => {
+                        block.add_sign();
+                        Ok(block.addr as *mut memtree::Node<'a>)
+                    },
+                    Err(error) => Err(error)
                 }
             }
         }

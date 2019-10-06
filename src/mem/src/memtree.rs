@@ -64,7 +64,7 @@ impl<'a> NodeType<'a> {
         }
     }
 
-    pub unsafe fn get_color(&self) -> Color {
+    unsafe fn get_color(&self) -> Color {
         match *self {
             NodeType::Node(node) => (*node).color,
             NodeType::Leaf(_) => Color::Black,
@@ -72,7 +72,7 @@ impl<'a> NodeType<'a> {
         }
     }
 
-    pub unsafe fn parent_ptr(&self) -> *mut Node<'a> {
+    unsafe fn parent_ptr(&self) -> *mut Node<'a> {
         match *self {
             NodeType::Node(ptr) => (*ptr).parent.ptr(),
             NodeType::Leaf(ptr) => ptr,
@@ -80,7 +80,7 @@ impl<'a> NodeType<'a> {
         }
     }
 
-    pub unsafe fn set_parent(&mut self, new_parent: &NodeType<'a>) {
+    unsafe fn set_parent(&mut self, new_parent: &NodeType<'a>) {
         match *self {
             NodeType::Node(node) => (*node).parent = *new_parent,
             NodeType::Leaf(ref mut leaf) => *leaf = new_parent.ptr(),
@@ -88,7 +88,7 @@ impl<'a> NodeType<'a> {
         }
     }
 
-    pub unsafe fn grand_parent(&self) -> Option<&'a mut NodeType<'a>> {
+    unsafe fn grand_parent(&self) -> Option<&'a mut NodeType<'a>> {
         let parent_node = self.parent_ptr();
         match parent_node.is_null() {
             true => None,
@@ -101,21 +101,21 @@ impl<'a> NodeType<'a> {
         }
     }
 
-    pub unsafe fn left(&self) -> &'a mut NodeType<'a> {
+    unsafe fn left(&self) -> &'a mut NodeType<'a> {
         match *self {
             NodeType::Node(ptr) => &mut (*ptr).left,
             _ => panic!("Accessing null ptr in memory tree: left")
         }
     }
 
-    pub unsafe fn right(&self) -> &'a mut NodeType<'a> {
+    unsafe fn right(&self) -> &'a mut NodeType<'a> {
         match *self {
             NodeType::Node(ptr) => &mut (*ptr).right,
             _ => panic!("Accessing null ptr in memory tree: right")
         }
     }
 
-    pub unsafe fn sibling(&self) -> Option<&'a mut NodeType<'a>> {
+    unsafe fn sibling(&self) -> Option<&'a mut NodeType<'a>> {
         let parent_node = self.parent_ptr();
         match parent_node.is_null() {
             true => None,
@@ -129,7 +129,7 @@ impl<'a> NodeType<'a> {
         }
     }
 
-    pub unsafe fn uncle(&self) -> Option<&'a mut NodeType<'a>> {
+    unsafe fn uncle(&self) -> Option<&'a mut NodeType<'a>> {
         match self.grand_parent() {
             Some(gp) => {
                 if gp.left().ptr() == self.parent_ptr() {
@@ -142,14 +142,14 @@ impl<'a> NodeType<'a> {
         }
     }
 
-    pub unsafe fn content(&self) -> &'a mut Block {
+    unsafe fn content(&self) -> &'a mut Block {
         match *self {
             NodeType::Node(ptr) => &mut (*ptr).content,
             _ => panic!("Accessing the content of a null node in memory tree")
         }
     }
 
-    pub unsafe fn leftmost(&self) -> NodeType<'a> {
+    unsafe fn leftmost(&self) -> NodeType<'a> {
         if self.left().is_node() {
             return self.left().leftmost();
         }

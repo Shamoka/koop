@@ -24,7 +24,7 @@ impl Block {
         self.addr &= 0o000000_777_777_777_777_7777;
     }
 
-    pub fn size(&self) -> usize {
+    pub const fn size(&self) -> usize {
         1 << self.order
     }
 

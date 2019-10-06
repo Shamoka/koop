@@ -56,10 +56,14 @@ $(ISO):		$(KERNEL) $(GRUBDIR)/$(GRUB_CFG)
 
 
 run:
-	qemu-system-x86_64 --enable-kvm -cdrom $(ISO) $(QEMU_OPT) -d int -no-reboot
+	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_OPT) -d int -no-reboot
 
-release: RELEASE= --release
-release: $(ISO)
+run-kvm:
+	qemu-system-x86_64 --enable-kvm -cdrom $(ISO) $(QEMU_OPT) -no-reboot
+
+riso: RELEASE=--release
+riso: RUST_LIB=target/$(NAME)/release/libkoop.a
+riso:	$(ISO)
 
 run-debug:	$(ISO)
 	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_OPT) -s -S -d int -no-reboot
