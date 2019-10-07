@@ -441,16 +441,19 @@ impl<'a> NodeType<'a> {
         }
     }
 
-    pub unsafe fn leaf(&self) -> NodeType<'a> {
-        match self.left().is_node() {
-            true => self.left().leaf(),
-            false => {
-                match self.right().is_node() {
-                    true => self.right().leaf(),
-                    false => *self
-                }
+    pub unsafe fn find_by_align(&self, align: usize) -> Option<NodeType<'a>> {
+        if self.is_node() {
+            if self.content().satisfy_align(align) {
+                return Some(*self);
             }
+            if let Some(res) = self.left().find_by_align(align) {
+                return Some(res);
+            } else if let Some(res) = self.right().find_by_align(align) {
+                return Some(res);
+            }
+            return None
         }
+        return None
     }
 }
 
@@ -462,29 +465,20 @@ impl<'a, 'b> Tree<'a> {
         }
     }
 
-    pub fn take(&mut self) -> TakeResult<'a> {
-        match self.block.take() {
-            Some(block) => TakeResult::Block(block),
-            None => {
-                match self.root {
-                    NodeType::Node(_) => {
-                        unsafe {
-                            let mut target = self.root.leaf();
-                            match target {
-                                NodeType::Node(_) => {
-                                    if let Some(ret) = self.delete_node(&mut target as *mut NodeType) {
-                                        return TakeResult::Node(ret);
-                                    }
-                                    return TakeResult::Empty;
-                                },
-                                _ => return TakeResult::Empty
-                            }
-                        }
-                    },
-                    _=> TakeResult::Empty
+    pub fn take(&mut self, align: usize) -> TakeResult<'a> {
+        if let Some(block) = self.block {
+            if block.satisfy_align(align) {
+                return TakeResult::Block(self.block.take().unwrap());
+            }
+        }
+        unsafe {
+            if let Some(mut target) = self.root.find_by_align(align) {
+                if let Some(ret) = self.delete_node(&mut target as *mut NodeType) {
+                    return TakeResult::Node(ret);
                 }
             }
         }
+        TakeResult::Empty
     }
 
     pub fn insert_block(&mut self, new_block: &Block) -> bool {

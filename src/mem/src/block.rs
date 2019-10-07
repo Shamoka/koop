@@ -12,6 +12,10 @@ impl Block {
         }
     }
 
+    pub fn satisfy_align(&self, align: usize) -> bool {
+        self.addr & (align - 1) == 0
+    }
+
     pub fn should_map(&self, order: usize, target: usize) -> bool {
         if self.addr + self.size() >= 0o776_000_000_000_0000 {
             return false;
@@ -53,14 +57,23 @@ impl Block {
         }
     }
 
-    pub fn split(&mut self) -> Option<Block> {
+    pub fn split(&mut self, align: usize) -> Option<Block> {
         if self.order == 0 {
             return None;
         }
         self.order -= 1;
-        Some(Block {
-            order: self.order,
-            addr: self.buddy_addr()
-        })
+        if self.satisfy_align(align) {
+            Some(Block {
+                order: self.order,
+                addr: self.buddy_addr()
+            })
+        } else {
+            let block = Block {
+                order: self.order,
+                addr: self.addr
+            };
+            self.addr = self.buddy_addr();
+            Some(block)
+        }
     }
 }

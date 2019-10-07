@@ -5,6 +5,8 @@ use crate::block::Block;
 use crate::memtree;
 use crate::slab::Slab;
 
+use core::alloc::Layout;
+
 const BUCKETS: usize = 49;
 
 pub struct Allocator<'a> {
@@ -24,7 +26,7 @@ impl<'a> Allocator<'a> {
         };
         allocator.buddies[BUCKETS - 1].insert_block(&Block::new(0, BUCKETS - 1));
         unsafe {
-            if let Ok(slab_block) = allocator.alloc_iter(21) {
+            if let Ok(slab_block) = allocator.alloc_iter(21, 1 << 21) {
                 allocator.node_slab.init(&slab_block);
             } else {
                 panic!("Cannot create node slab");
@@ -64,7 +66,7 @@ impl<'a> Allocator<'a> {
             match self.internal.unmap(&addr) {
                 Ok(frame) => {
                     if let false = self.internal.frame_allocator.dealloc(frame) {
-                        if let Ok(frame_block) = self.alloc_iter(12) {
+                        if let Ok(frame_block) = self.alloc_iter(12, 1 << 12) {
                             self.internal.frame_allocator.pool(&frame_block);
                         } else {
                             panic!("Cannot pool frame nodes");
@@ -109,14 +111,14 @@ impl<'a> Allocator<'a> {
         }
     }
 
-    pub fn alloc(&mut self, len: usize) -> *mut u8 {
-        if len == 0 {
+    pub fn alloc(&mut self, layout: &Layout) -> *mut u8 {
+        if layout.size() == 0 {
             return 0 as *mut u8;
         }
-        let target = self.get_order(len);
+        let target = self.get_order(layout.size());
         match self.alloc_node() {
             Ok(new_node) => {
-                match self.alloc_iter(target) {
+                match self.alloc_iter(target, layout.align()) {
                     Ok(mut block) => {
                         block.remove_sign();
                         unsafe {
@@ -138,7 +140,7 @@ impl<'a> Allocator<'a> {
             if let Some(node) = self.node_slab.get() {
                 Ok(node)
             } else {
-                match self.alloc_iter(self.node_slab.order) {
+                match self.alloc_iter(self.node_slab.order, 1 << self.node_slab.order) {
                     Ok(mut block) => {
                         block.add_sign();
                         Ok(block.addr as *mut memtree::Node<'a>)
@@ -149,26 +151,40 @@ impl<'a> Allocator<'a> {
         }
     }
 
-    fn alloc_iter(&mut self, target: usize) -> Result<Block, AllocError> {
+    fn alloc_iter(&mut self, target: usize, align: usize) -> Result<Block, AllocError> {
         let mut order = target;
-        while let Some(mut block) = self.choose_block(order) {
+        while let Some(mut block) = self.choose_block(order, align) {
             while block.order > target {
                 if block.should_map(block.order, target) {
-                    if let Err(_) = self.internal.map(&block) {
-                        break ;
+                    match self.internal.map(&block) {
+                        Err(AllocError::InUse) => break,
+                        Err(error) => return Err(error),
+                        Ok(_) => {}
                     }
                 }
-                if let Some(new_block) = block.split() {
+                if let Some(new_block) = block.split(align) {
                     if self.buddies[new_block.order].insert_block(&new_block) == false {
-                        panic!("Should not happen");
+                        unsafe {
+                            match self.alloc_node() {
+                                Ok(node) => {
+                                    (*node).content = new_block;
+                                    self.buddies[new_block.order].insert(node);
+                                },
+                                Err(_) => panic!("Cannot create new block")
+                            };
+                        }
                     }
                 }
             }
             if block.order == target {
                 if block.should_map(order, target) {
-                    if let Err(_) = self.internal.map(&block) {
-                        order = block.order;
-                        continue
+                    match self.internal.map(&block) {
+                        Err(AllocError::InUse) => {
+                            order = block.order;
+                            continue
+                        },
+                        Err(error) => return Err(error),
+                        Ok(_) => {}
                     }
                 }
                 return Ok(block);
@@ -178,10 +194,10 @@ impl<'a> Allocator<'a> {
         Err(AllocError::OutOfMemory)
     }
 
-    fn choose_block(&mut self, order: usize) -> Option<Block> {
+    fn choose_block(&mut self, order: usize, align: usize) -> Option<Block> {
         unsafe {
             for i in order..BUCKETS {
-                match self.buddies[i].take() {
+                match self.buddies[i].take(align) {
                     memtree::TakeResult::Block(block_taken) => return Some(block_taken),
                     memtree::TakeResult::Node(node) => {
                         let block = (*node).content;
