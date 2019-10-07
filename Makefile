@@ -43,6 +43,7 @@ all:		$(ISO)
 $(KERNEL): 	$(OBJ) $(LD_SCRIPT) cargo
 	mkdir -p $(KERNELDIR)
 	$(LD) -n -T $(LD_SCRIPT) -o $(KERNEL) $(OBJ) $(RUST_LIB)
+	$(STRIP_DEBUG)
 
 cargo:
 	cargo-fmt
@@ -54,7 +55,6 @@ $(ISO):		$(KERNEL) $(GRUBDIR)/$(GRUB_CFG)
 	cp $(GRUBDIR)/$(GRUB_CFG) $(BUILDDIR)/iso/boot/grub/grub.cfg
 	grub-mkrescue -o $(ISO) $(BUILDDIR)/iso
 
-
 run:
 	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_OPT) -d int -no-reboot
 
@@ -63,6 +63,7 @@ run-kvm:
 
 riso: RELEASE=--release
 riso: RUST_LIB=target/$(NAME)/release/libkoop.a
+riso: STRIP_DEBUG=strip $(KERNEL)
 riso:	$(ISO)
 
 run-debug:	$(ISO)
