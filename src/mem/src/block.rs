@@ -13,9 +13,12 @@ impl Block {
     }
 
     pub fn should_map(&self, order: usize, target: usize) -> bool {
+        if self.addr + self.size() >= 0o776_000_000_000_0000 {
+            return false;
+        }
         if (order == target && target >= 12)
             || (target < 12 && order == 12) {
-                return true
+                return true;
         }
         false
     }

@@ -81,7 +81,7 @@ impl Stack {
                 false => vga::println!("Frame stack has {} nodes", (*self.root).count())
             };
             match self.pool.is_null() {
-                true => vga::println!("frame stack poolis empty"),
+                true => vga::println!("frame stack pool is empty"),
                 false => vga::println!("Frame stack pool has {} nodes", (*self.pool).count())
             };
         }

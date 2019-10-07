@@ -10,29 +10,30 @@ fn panic(info: &PanicInfo) -> ! {
     loop {}
 }
 
-unsafe fn alloc_test(tab: &mut [*mut u8; 2000]) {
-    for i in 0..2000 {
+unsafe fn alloc_test(tab: &mut [*mut u8; 2000], begin: usize, end: usize) {
+    for i in begin..end {
         let size = i * 2 + 10;
         tab[i] = ALLOCATOR.memalloc(size);
         if tab[i].is_null() {
             panic!("Alloc number {} failed", i);
         }
-        *(tab[i] as *mut u8) = 42;
+        *(tab[i].offset((size - i) as isize - 1)) = 42;
     }
-    for i in 0..500 {
+}
+
+unsafe fn dealloc_test(tab: &mut [*mut u8; 2000], begin: usize, end: usize) {
+    for i in begin..end {
         ALLOCATOR.memdealloc(tab[i]);
     }
-    for i in 0..500 {
-        let size = i * 2 + 10;
-        tab[i] = ALLOCATOR.memalloc(size);
-        if tab[i].is_null() {
-            panic!("Alloc number {} failed", i);
-        }
-        *(tab[i] as *mut u8) = 42;
-    }
-    for i in 0..2000 {
-        ALLOCATOR.memdealloc(tab[i]);
-    }
+}
+
+unsafe fn test(tab: &mut [*mut u8; 2000]) {
+    alloc_test(tab, 0, 2000); // m: 0-2000
+    dealloc_test(tab, 500, 1500); // m: 0-500 1500-2000
+    alloc_test(tab, 1000, 1500); // m: 0-500 1000-2000
+    dealloc_test(tab, 1000, 2000); // m: 0-500
+    alloc_test(tab, 500, 2000); // m: 0-2000
+    dealloc_test(tab, 0, 2000); // m: None
 }
 
 #[no_mangle]
@@ -41,8 +42,8 @@ pub fn koop(mb2: usize) -> ! {
     unsafe {
         ALLOCATOR.init(multiboot2::Info::new(mb2));
         let mut tab = [0 as *mut u8; 2000];
-        for _ in 0..10000 {
-            alloc_test(&mut tab);
+        for _ in 0..2000 {
+            test(&mut tab);
         }
         ALLOCATOR.inspect();
     }

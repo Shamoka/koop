@@ -5,7 +5,7 @@ use crate::block::Block;
 use crate::memtree;
 use crate::slab::Slab;
 
-const BUCKETS: usize = 48;
+const BUCKETS: usize = 49;
 
 pub struct Allocator<'a> {
     internal: stage1::Allocator,
@@ -100,12 +100,9 @@ impl<'a> Allocator<'a> {
                     self.dealloc_recurse(block);
                 },
                 None => {
-                    match self.alloc_node() {
-                        Ok(mut new_node) => {
-                            (*new_node).content = block;
-                            self.buddies[block.order].insert(new_node);
-                        },
-                        _ => ()
+                    if let Ok(mut new_node) = self.alloc_node() {
+                        (*new_node).content = block;
+                        self.buddies[block.order].insert(new_node);
                     }
                 }
             }
