@@ -3,6 +3,7 @@
 *.bin
 build/
 .gdb_history
+.session.vim
 
 
 #Added by cargo
