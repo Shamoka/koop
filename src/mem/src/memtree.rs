@@ -472,7 +472,7 @@ impl<'a, 'b> Tree<'a> {
                             let mut target = self.root.leaf();
                             match target {
                                 NodeType::Node(_) => {
-                                    if let Some(ret) = self.delete_node(&mut target) {
+                                    if let Some(ret) = self.delete_node(&mut target as *mut NodeType) {
                                         return TakeResult::Node(ret);
                                     }
                                     return TakeResult::Empty;
@@ -480,8 +480,8 @@ impl<'a, 'b> Tree<'a> {
                                 _ => return TakeResult::Empty
                             }
                         }
-                    }
-                    _ => TakeResult::Empty
+                    },
+                    _=> TakeResult::Empty
                 }
             }
         }

@@ -53,7 +53,7 @@ impl<'a> Allocator<'a> {
                 }
                 self.dealloc_recurse(block);
             },
-            None => panic!("Block {:?} not found in dealloc", block)
+            None => loop {}
         }
     }
 
@@ -186,7 +186,15 @@ impl<'a> Allocator<'a> {
             for i in order..BUCKETS {
                 match self.buddies[i].take() {
                     memtree::TakeResult::Block(block_taken) => return Some(block_taken),
-                    memtree::TakeResult::Node(node) => return Some((*node).content),
+                    memtree::TakeResult::Node(node) => {
+                        let block = (*node).content;
+                        if self.node_slab.give(node) == false {
+                            (*(node as *mut Block)).addr = node as usize;
+                            (*(node as *mut Block)).order = self.node_slab.order;
+                            self.dealloc_recurse(*(node as *mut Block));
+                        }
+                        return Some(block);
+                    }
                     memtree::TakeResult::Empty => {}
                 }
             }
