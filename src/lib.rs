@@ -1,13 +1,14 @@
 #![no_std]
 #![feature(alloc_error_handler)]
 
-use core::panic::PanicInfo;
+use idt::IDT;
 use mem::allocator::ALLOCATOR;
 use vga::println;
 
 extern crate alloc;
 
 use core::alloc::Layout;
+use core::panic::PanicInfo;
 
 #[alloc_error_handler]
 fn alloc_error_handler(layout: Layout) -> ! {
@@ -21,6 +22,9 @@ fn alloc_error_handler(layout: Layout) -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
+    unsafe {
+        asm::x86_64::instruction::hlt();
+    }
     loop {}
 }
 
@@ -29,7 +33,10 @@ pub fn koop(mb2: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
     unsafe {
         ALLOCATOR.init(multiboot2::Info::new(mb2));
+        IDT.init();
+        *(0xdeadbeef as *mut u8) = 42;
+        vga::println!("OK");
+        asm::x86_64::instruction::hlt();
     }
-    vga::println!("OK");
     loop {}
 }

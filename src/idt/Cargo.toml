@@ -1,0 +1,12 @@
+[package]
+name = "idt"
+version = "0.1.0"
+authors = ["Guillaume Chainet <gchainet@student.42.fr>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+spinlock = { path = "../spinlock/" }
+vga = { path = "../vga/" }
+asm = { path = "../asm/" }

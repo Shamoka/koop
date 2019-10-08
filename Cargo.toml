@@ -10,6 +10,8 @@ serial = { path = "src/serial/" }
 spinlock = { path = "src/spinlock/" }
 multiboot2 = { path = "src/multiboot2/" }
 mem = { path = "src/mem/" }
+idt = { path = "src/idt" }
+asm = { path = "src/asm" }
 
 [lib]
 crate-type = ["staticlib"]
