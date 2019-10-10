@@ -34,8 +34,11 @@ pub fn koop(mb2: usize) -> ! {
     unsafe {
         ALLOCATOR.init(multiboot2::Info::new(mb2));
         IDT.init();
-        *(0xdeadbeef as *mut u8) = 42;
-        vga::println!("OK");
+        if asm::x86_64::instruction::cpuid::check_apic() {
+            vga::println!("APIC present");
+        } else {
+            vga::println!("APIC absent");
+        }
         asm::x86_64::instruction::hlt();
     }
     loop {}

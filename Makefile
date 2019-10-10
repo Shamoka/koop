@@ -59,7 +59,7 @@ run:
 	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_OPT) -d int -no-reboot
 
 run-kvm:
-	qemu-system-x86_64 --enable-kvm -cdrom $(ISO) $(QEMU_OPT) -no-reboot
+	qemu-system-x86_64 --enable-kvm -cpu host -cdrom $(ISO) $(QEMU_OPT) -no-reboot
 
 riso: RELEASE=--release
 riso: RUST_LIB=target/$(NAME)/release/libkoop.a

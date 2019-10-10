@@ -6,6 +6,19 @@ pub mod instruction {
     pub unsafe fn hlt() {
         asm!("hlt");
     }
+
+    pub mod cpuid {
+        const APIC_BIT: usize = 1 << 9;
+
+        pub unsafe fn check_apic() -> bool {
+            let edx: usize;
+            asm!("
+            mov $$0x80000001, %eax
+            cpuid"
+            : "={edx}"(edx) ::: "volatile");
+            edx & APIC_BIT != 0
+        }
+    }
 }
 
 pub mod reg {
