@@ -3,7 +3,7 @@ use crate::StackFrame;
 fn dump_int_stack_frame(sf: &StackFrame) {
     vga::println!("ip: {:x}", sf.ip);
     vga::println!("cs: {:x}", sf.ip);
-    vga::println!("rflags: {:b}", sf.ip);
+    vga::println!("rflags: {:b}", sf.rflags);
     vga::println!("sp: {:x}", sf.sp);
     vga::println!("ss: {:x}", sf.ss);
 }
