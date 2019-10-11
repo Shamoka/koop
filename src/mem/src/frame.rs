@@ -36,7 +36,7 @@ pub struct Allocator {
 }
 
 impl Allocator {
-    pub fn new(mb2: multiboot2::Info) -> Allocator {
+    pub fn new(mb2: &multiboot2::Info) -> Allocator {
         let kstart = mb2.get_elf_sections()
             .expect("No ELF section found in multiboot2 info")
             .map(|x| x.sh_addr)
@@ -54,7 +54,7 @@ impl Allocator {
             memory_size: mem_size as usize,
             free_base: Addr::new(super::UPPER_MEMORY_BOUND),
             frame_stack: Stack::new(),
-            mb2: mb2
+            mb2: *mb2
         }
     }
 

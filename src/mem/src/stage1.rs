@@ -17,7 +17,7 @@ pub struct Allocator {
 }
 
 impl Allocator {
-    pub fn new(mb2: multiboot2::Info) -> Allocator {
+    pub fn new(mb2: &multiboot2::Info) -> Allocator {
         let mut allocator = Allocator {
             frame_allocator: frame::Allocator::new(mb2),
             pml4: PML4::new(&PML4_ADDR, 511),

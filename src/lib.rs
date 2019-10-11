@@ -32,7 +32,9 @@ fn panic(info: &PanicInfo) -> ! {
 pub fn koop(mb2: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
     unsafe {
-        ALLOCATOR.init(multiboot2::Info::new(mb2));
+        let mb2_info = multiboot2::Info::new(mb2);
+        let rsdp = mb2_info.get_rsdp();
+        ALLOCATOR.init(&mb2_info);
         IDT.init();
         pic::init(true);
         asm::x86_64::instruction::hlt();

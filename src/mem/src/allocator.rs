@@ -30,7 +30,7 @@ impl<'a> Allocator<'a> {
         }
     }
 
-    pub unsafe fn init(&self, mb2: multiboot2::Info) {
+    pub unsafe fn init(&self, mb2: &multiboot2::Info) {
         let _lock = self.mutex.lock();
         *self.internal.get() = Stage::Stage2(stage2::Allocator::new(mb2));
     }

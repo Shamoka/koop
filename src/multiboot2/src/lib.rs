@@ -3,7 +3,9 @@
 mod basic_mem_info;
 mod mem_map;
 pub mod elf;
+pub mod rsdp;
 
+#[derive(Copy, Clone)]
 pub struct Info {
     pub base: usize,
     pub total_size: u32
@@ -24,7 +26,9 @@ struct TagIter {
 enum TagType {
     BasicMemInfo = 4,
     MemMap = 6,
-    Elf = 9
+    Elf = 9,
+    RDSPv1 = 14,
+    RDSPv2 = 15
 }
 
 impl Info {
@@ -60,6 +64,15 @@ impl Info {
             Some(tag) => Some(elf::Header::new(&tag).sections()),
             None => None
         }
+    }
+
+    pub fn get_rsdp(&self) -> Option<rsdp::Info> {
+        if let Some(tag) = self.tags().find(TagType::RDSPv2) {
+            return Some(rsdp::Info::new_v2(&tag));
+        } else if let Some(tag) = self.tags().find(TagType::RDSPv1) {
+            return Some(rsdp::Info::new_v1(&tag));
+        }
+        None
     }
 }
 

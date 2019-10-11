@@ -17,7 +17,7 @@ pub struct Allocator<'a> {
 }
 
 impl<'a> Allocator<'a> {
-    pub fn new(mb2: multiboot2::Info) -> Allocator<'a> {
+    pub fn new(mb2: &multiboot2::Info) -> Allocator<'a> {
         let mut allocator = Allocator {
             internal: stage1::Allocator::new(mb2),
             buddies: [memtree::Tree::new(); BUCKETS],
