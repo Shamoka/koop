@@ -32,8 +32,12 @@ pub fn koop(mb2: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
     unsafe {
         let mb2_info = multiboot2::Info::new(mb2);
+        let rdsp = mb2_info
+            .get_rsdp()
+            .expect("No RSDP found in multiboot2 info")
+            .addr();
         ALLOCATOR.init(&mb2_info);
-        pic::init(true, &mb2_info);
+        pic::init(true, rdsp);
         loop {
             asm::x86_64::instruction::hlt();
         }
