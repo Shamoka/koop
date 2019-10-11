@@ -27,7 +27,7 @@ impl Allocator {
             Err(error) => panic!("Unable to create a new PML4: {:?}", error)
         };
         unsafe {
-            asm::x86_64::reg::tlb::flush();
+            asm::x86_64::tlb::flush();
             asm::x86_64::reg::efer::set_bit(asm::x86_64::reg::efer::BIT_NXE);
         }
         if let Err(error) = allocator.remap_kernel(new_pml4) {
@@ -37,7 +37,7 @@ impl Allocator {
             panic!("Unable to remap low memory: {:?}", error);
         }
         unsafe {
-            asm::x86_64::reg::tlb::update(pml4_frame.base.addr);
+            asm::x86_64::tlb::update(pml4_frame.base.addr);
         }
         allocator.pml4 = new_pml4;
         allocator

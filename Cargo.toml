@@ -12,6 +12,7 @@ multiboot2 = { path = "src/multiboot2/" }
 mem = { path = "src/mem/" }
 idt = { path = "src/idt" }
 asm = { path = "src/asm" }
+pic = { path = "src/pic" }
 
 [lib]
 crate-type = ["staticlib"]
