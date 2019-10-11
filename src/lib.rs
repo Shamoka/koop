@@ -37,6 +37,9 @@ pub fn koop(mb2: usize) -> ! {
             .expect("No RSDP found in multiboot2 info")
             .addr();
         ALLOCATOR.init(&mb2_info);
+        ALLOCATOR
+            .id_map(rdsp, mem::frame::FRAME_SIZE)
+            .expect("Unable to map RDST");
         pic::init(true, rdsp);
         loop {
             asm::x86_64::instruction::hlt();

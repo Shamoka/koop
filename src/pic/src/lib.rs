@@ -1,8 +1,6 @@
 #![no_std]
 
 use idt::IDT;
-use mem::allocator::ALLOCATOR;
-use multiboot2;
 
 mod pic;
 mod apic;
