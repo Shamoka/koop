@@ -39,4 +39,11 @@ impl Info {
             Info::V2(r2)
         }
     }
+
+    pub fn addr(&self) -> usize {
+        match *self {
+            Info::V1(v1) => v1.address as usize,
+            Info::V2(v2) => v2.address as usize
+        }
+    }
 }

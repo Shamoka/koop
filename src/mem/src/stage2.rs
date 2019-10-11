@@ -35,11 +35,6 @@ impl<'a> Allocator<'a> {
         allocator
     }
 
-    pub fn inspect(&self) {
-        self.internal.frame_allocator.inspect();
-        self.blocks.inspect();
-    }
-
     pub fn dealloc(&mut self, ptr: *mut u8) {
         let mut block = Block::new(ptr as usize, 0);
         block.remove_sign();
@@ -109,6 +104,14 @@ impl<'a> Allocator<'a> {
                 }
             }
         }
+    }
+
+    pub fn id_map(&mut self, addr: usize, len: usize) -> Result<(), AllocError> {
+        let mut order = 0;
+        while 1 << order < len {
+            order += 1;
+        }
+        self.internal.map(&Block::new(addr, order))
     }
 
     pub fn alloc(&mut self, layout: &Layout) -> *mut u8 {

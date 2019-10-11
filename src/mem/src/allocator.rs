@@ -1,5 +1,6 @@
 use crate::stage2;
 use crate::addr::Addr;
+use crate::AllocError;
 
 use spinlock::Mutex;
 
@@ -35,11 +36,11 @@ impl<'a> Allocator<'a> {
         *self.internal.get() = Stage::Stage2(stage2::Allocator::new(mb2));
     }
 
-    pub unsafe fn inspect(&self) {
+    pub unsafe fn id_map(&self, phys_addr: usize, len: usize) -> Result<(), AllocError> {
         let _lock = self.mutex.lock();
         match &mut *self.internal.get() {
-            Stage::Stage2(allocator) => allocator.inspect(),
-            _ => {}
+            Stage::Stage2(allocator) => allocator.id_map(phys_addr, len),
+            _ => panic!("Called Allocator::map before init")
         }
     }
 }

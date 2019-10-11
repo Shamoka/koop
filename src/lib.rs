@@ -1,7 +1,6 @@
 #![no_std]
 #![feature(alloc_error_handler)]
 
-use idt::IDT;
 use mem::allocator::ALLOCATOR;
 use vga::println;
 
@@ -33,11 +32,10 @@ pub fn koop(mb2: usize) -> ! {
     vga::TEXT_BUFFER.lock().clear();
     unsafe {
         let mb2_info = multiboot2::Info::new(mb2);
-        let rsdp = mb2_info.get_rsdp();
         ALLOCATOR.init(&mb2_info);
-        IDT.init();
-        pic::init(true);
-        asm::x86_64::instruction::hlt();
+        pic::init(true, &mb2_info);
+        loop {
+            asm::x86_64::instruction::hlt();
+        }
     }
-    loop {}
 }

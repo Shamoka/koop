@@ -433,14 +433,6 @@ impl<'a> NodeType<'a> {
         }
     }
 
-    pub unsafe fn inspect(&self, depth: usize) {
-        if self.is_node() {
-            self.left().inspect(depth + 1);
-            vga::println!("{}: {:?} {:?}", depth, self.get_color(), self.content());
-            self.right().inspect(depth + 1);
-        }
-    }
-
     pub unsafe fn find_by_align(&self, align: usize) -> Option<NodeType<'a>> {
         if self.is_node() {
             if self.content().satisfy_align(align) {
@@ -529,16 +521,6 @@ impl<'a, 'b> Tree<'a> {
                     Some(ret)
                 },
                 None => None
-            }
-        }
-    }
-
-    pub fn inspect(&self) {
-        unsafe {
-            if !self.root.is_node() {
-                vga::println!("Empty!");
-            } else {
-                self.root.inspect(0);
             }
         }
     }

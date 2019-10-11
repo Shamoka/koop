@@ -73,17 +73,4 @@ impl Stack {
             }
         }
     }
-
-    pub fn inspect(&self) {
-        unsafe {
-            match self.root.is_null() {
-                true => vga::println!("frame stack is empty"),
-                false => vga::println!("Frame stack has {} nodes", (*self.root).count())
-            };
-            match self.pool.is_null() {
-                true => vga::println!("frame stack pool is empty"),
-                false => vga::println!("Frame stack pool has {} nodes", (*self.pool).count())
-            };
-        }
-    }
 }

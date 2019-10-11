@@ -3,19 +3,19 @@
 
 const UPPER_MEMORY_BOUND: usize = 1 << 20;
 
-mod frame;
 mod table;
 mod entry;
 mod stage1;
 mod stage2;
 mod memtree;
-pub mod block;
 mod slab;
 mod stack;
 
 pub mod addr;
 pub mod area;
 pub mod allocator;
+pub mod block;
+pub mod frame;
 
 #[derive(Debug)]
 pub enum AllocError {

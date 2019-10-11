@@ -58,11 +58,6 @@ impl Allocator {
         }
     }
 
-    pub fn inspect(&self) {
-        vga::println!("{}", self.free_base.addr);
-        self.frame_stack.inspect();
-    }
-
     pub fn alloc(&mut self) -> Result<Frame, AllocError> {
         match self.frame_stack.pop() {
             Some(frame) => Ok(frame),

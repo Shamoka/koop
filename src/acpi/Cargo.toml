@@ -1,5 +1,5 @@
 [package]
-name = "pic"
+name = "acpi"
 version = "0.1.0"
 authors = ["Guillaume Chainet <gchainet@student.42.fr>"]
 edition = "2018"
@@ -7,7 +7,3 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-asm = { path = "../asm" }
-idt = { path = "../idt" }
-mem = { path = "../mem" }
-multiboot2 = { path = "../multiboot2" }
