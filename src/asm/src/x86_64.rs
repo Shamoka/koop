@@ -44,7 +44,7 @@ pub mod reg {
             let eax: usize;
             let edx: usize;
             asm!("rdmsr" : "={edx}"(edx), "={eax}"(eax) : "{ecx}"(ID) :::"volatile");
-            let base = eax >> 12 + ((edx & 0b111) << 32);
+            let base = (eax & !0xFFF) + ((edx & 0b111) << 32);
             asm!("wrmsr" :: "{edx}"(edx), "{eax}"(eax | APIC_ENABLE_BIT), "{ecx}"(ID) ::: "volatile");
             crate::x86_64::apic::Apic::new(base)
         }
@@ -58,6 +58,13 @@ pub mod apic {
         base: usize,
     }
 
+    pub unsafe fn disable_pic() {
+        asm!("
+        mov $$0xFF, %al
+        outb %al, $$0xA1
+        outb %al, $$0x21");
+    }
+
     impl Apic {
         pub const fn new(base: usize) -> Apic {
             Apic { base: base }
@@ -68,7 +75,8 @@ pub mod apic {
 
             asm!("mov $0, %rax" : "={rax}"(sivr) : "m"(self.base + SIVR) ::: "volatile");
             sivr &= !0xFF;
-            sivr |= (value & 0xF0) as usize;
+            sivr |= 1 << 8;
+            sivr |= (value & 0xFF) as usize;
             asm!("mov %rax, $0" :: "{rax}"(sivr), "m"(self.base + SIVR) :: "volatile");
         }
     }
