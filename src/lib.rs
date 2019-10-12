@@ -22,9 +22,10 @@ fn alloc_error_handler(layout: Layout) -> ! {
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
     unsafe {
-        asm::x86_64::instruction::hlt();
+        loop {
+            asm::x86_64::instruction::hlt();
+        }
     }
-    loop {}
 }
 
 #[no_mangle]

@@ -47,6 +47,22 @@ impl Allocator {
         self.pml4.unmap_frame(addr)
     }
 
+    pub fn id_map(&mut self, area: &Area) -> Result<(), AllocError> {
+        for page in area.pages() {
+            if let Err(error) = self.pml4.map_frame(
+                &page,
+                entry::Entry::new(
+                    area.base.addr,
+                    entry::FLAG_PRESENT | entry::FLAG_WRITABLE,
+                ),
+                &mut self.frame_allocator,
+            ) {
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+
     pub fn map(&mut self, block: &Block) -> Result<(), AllocError> {
         let area = Area::new(block.addr, block.size());
         for page in area.pages() {

@@ -107,11 +107,7 @@ impl<'a> Allocator<'a> {
     }
 
     pub fn id_map(&mut self, addr: usize, len: usize) -> Result<(), AllocError> {
-        let mut order = 0;
-        while 1 << order < len {
-            order += 1;
-        }
-        self.internal.map(&Block::new(addr, order))
+        self.internal.id_map(&Area::new(addr, len))
     }
 
     pub fn alloc(&mut self, layout: &Layout) -> *mut u8 {
