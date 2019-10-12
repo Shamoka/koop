@@ -8,10 +8,13 @@ mod apic;
 
 pub unsafe fn init(use_apic: bool, rdsp: usize) {
     IDT.init();
-    if let Some(rdst) = RSDT::new(rdsp) {
-        rdst.find_table();
+    let rsdt_ptr = rdsp as *const RSDT;
+    if (*rsdt_ptr).validate() == false {
+        panic!("Invalid RSDT");
     }
-    // find MADT
+    if let Some(_) = (*rsdt_ptr).find_table("APIC") {
+        vga::println!("Found!");
+    }
     // find IO APICs
     // find LAPICs
     if use_apic && asm::x86_64::instruction::cpuid::check_apic() {

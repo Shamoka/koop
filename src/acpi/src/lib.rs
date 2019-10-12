@@ -4,29 +4,26 @@ use core::mem::size_of;
 
 mod table;
 
-use crate::table::{Table, Header};
+use crate::table::Header;
 
+#[repr(C, packed)]
 pub struct RSDT {
-    rsdt: Table,
+    header: Header
 }
 
 impl RSDT {
-    pub unsafe fn new(ptr: usize) -> Option<RSDT> {
-        if let Some(table) = Table::new(ptr) {
-            Some(RSDT {
-                rsdt: table
-            })
-        } else {
-            None
-        }
+    pub unsafe fn validate(&self) -> bool {
+        self.header.validate()
     }
 
-    pub unsafe fn find_table(&self) -> Option<Table> {
-        let size = (self.rsdt.header.length as usize - size_of::<Header>()) / size_of::<u32>();
-        let mut ptr = self.rsdt.ptr + size_of::<Header>();
-        for _ in 0..size {
-            vga::println!("{:x}", *(ptr as *const u32));
-            ptr += size_of::<u32>();
+    pub unsafe fn find_table(&self, signature: &str) -> Option<*const Header> {
+        let ptr = (self as *const RSDT).offset(1) as *const u32;
+        let size = (self.header.length as usize - size_of::<Header>()) / size_of::<u32>();
+        for i in 0..size {
+            let table_ptr = (*ptr.offset(i as isize)) as *const Header;
+            if (*table_ptr).signature == signature.as_bytes() {
+                return Some(table_ptr);
+            }
         }
         None
     }

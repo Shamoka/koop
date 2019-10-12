@@ -1,12 +1,3 @@
-
-use core::mem::size_of;
-
-pub struct Table {
-    pub header: Header,
-    pub ptr: usize
-}
-
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct Header {
     pub signature: [u8; 4],
@@ -20,36 +11,12 @@ pub struct Header {
     pub creator_revision: u32
 }
 
-impl Table {
-    pub unsafe fn new(ptr: usize) -> Option<Table> {
-        let table = Table {
-            header: *(ptr as *const Header),
-            ptr: ptr
-        };
-        if table.validate() {
-            Some(table)
-        } else {
-            None
-        }
-    }
-
-    unsafe fn validate(&self) -> bool {
-        let mut ptr = self.ptr;
-        let mut sum = 0;
-        let end = self.header.length as usize / size_of::<usize>();
-        let r = self.header.length as usize % size_of::<usize>();
-        for _ in 0..end {
-            let mut word = *(ptr as *const usize);
-            for _ in 0..size_of::<usize>() {
-                sum += word & 0xff;
-                word >>= 8;
-            }
-            ptr += size_of::<usize>();
-        }
-        for _ in 0..r {
-            let word = *(ptr as *const u8);
-            sum += word as usize;
-            ptr += 1;
+impl Header {
+    pub unsafe fn validate(&self) -> bool {
+        let ptr = self as *const Header as *const u8;
+        let mut sum: usize = 0;
+        for i in 0..self.length {
+            sum += *(ptr.offset(i as isize) as *const u8) as usize;
         }
         sum & 0xff == 0
     }
