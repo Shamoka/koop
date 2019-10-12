@@ -11,9 +11,12 @@ pub unsafe fn init(rdsp: usize) -> bool {
     if let Some(madt_ptr) = (*rsdt_ptr).find_table("APIC") {
         for entry in (*(madt_ptr as *const MADT)).entries() {
             match entry {
-                Entry::EntryLocalAPIC(_) => vga::println!("Local APIC found"),
+                Entry::EntryLAPIC(_) => vga::println!("Local APIC found"),
                 Entry::EntryIOAPIC(_) => vga::println!("IO APIC found"),
-                _ => vga::println!("Unimplemented entry")
+                Entry::EntryISO(_) => vga::println!("Interrupt source override found"),
+                Entry::EntryNMI(_) => vga::println!("Non maskable interrupt found"),
+                Entry::EntryLAPICOverride(_) => vga::println!("Local APIC override found"),
+                _ => vga::println!("Unknown entry in MADT")
             }
         }
         if asm::x86_64::instruction::cpuid::check_apic() {

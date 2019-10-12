@@ -21,7 +21,7 @@ pub struct EntryHeader {
 }
 
 #[repr(C, packed)]
-pub struct LocalAPIC {
+pub struct LAPIC {
     header: EntryHeader,
     proc_id: u8,
     apic_id: u8,
@@ -37,10 +37,37 @@ pub struct IOAPIC {
     global_system_interrupt_base: u32
 }
 
+#[repr(C, packed)]
+pub struct ISO {
+    header: EntryHeader,
+    bus_source: u8,
+    irq_source: u8,
+    global_system_interrupt: u32,
+    flags: u16
+}
+
+#[repr(C, packed)]
+pub struct NMI {
+    header: EntryHeader,
+    proc_id: u8,
+    flags: u16,
+    lint: u8
+}
+
+#[repr(C, packed)]
+pub struct LAPICOverride {
+    header: Header,
+    _res: u16,
+    addr: u64
+}
+
 pub enum Entry {
-    EntryLocalAPIC(*const LocalAPIC),
+    EntryLAPIC(*const LAPIC),
     EntryIOAPIC(*const IOAPIC),
-    EntryUnimplemented
+    EntryISO(*const ISO),
+    EntryNMI(*const NMI),
+    EntryLAPICOverride(*const LAPICOverride),
+    EntryUnknown
 }
 
 impl MADT {
@@ -62,9 +89,12 @@ impl<'a> Iterator for MADTIter<'a> {
         let entry_ptr = self.pos as *const EntryHeader;
         unsafe {
             let entry = match (*entry_ptr).entry_type {
-                0 => Some(Entry::EntryLocalAPIC(entry_ptr as *const LocalAPIC)),
+                0 => Some(Entry::EntryLAPIC(entry_ptr as *const LAPIC)),
                 1 => Some(Entry::EntryIOAPIC(entry_ptr as *const IOAPIC)),
-                _ => Some(Entry::EntryUnimplemented)
+                2 => Some(Entry::EntryISO(entry_ptr as *const ISO)),
+                4 => Some(Entry::EntryNMI(entry_ptr as *const NMI)),
+                5 => Some(Entry::EntryLAPICOverride(entry_ptr as *const LAPICOverride)),
+                _ => Some(Entry::EntryUnknown)
             };
             self.pos += (*entry_ptr).length as usize;
             entry
