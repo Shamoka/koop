@@ -56,10 +56,10 @@ $(ISO):		$(KERNEL) $(GRUBDIR)/$(GRUB_CFG)
 	grub-mkrescue -o $(ISO) $(BUILDDIR)/iso
 
 run:
-	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_OPT) -d int -no-reboot
+	qemu-system-x86_64 -smp 2 -cdrom $(ISO) $(QEMU_OPT) -d int -no-reboot
 
 run-kvm:
-	qemu-system-x86_64 --enable-kvm -cpu host -cdrom $(ISO) $(QEMU_OPT) -no-reboot
+	qemu-system-x86_64 -smp 2 --enable-kvm -cpu host -cdrom $(ISO) $(QEMU_OPT) -no-reboot
 
 riso: RELEASE=--release
 riso: RUST_LIB=target/$(NAME)/release/libkoop.a
@@ -67,7 +67,7 @@ riso: STRIP_DEBUG=strip $(KERNEL)
 riso:	$(ISO)
 
 run-debug:	$(ISO)
-	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_OPT) -s -S -d int -no-reboot
+	qemu-system-x86_64 -smp 2 -cdrom $(ISO) $(QEMU_OPT) -s -S -d int -no-reboot
 
 iso:	$(ISO)
 

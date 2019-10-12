@@ -41,7 +41,7 @@ pub fn koop(mb2: usize) -> ! {
         ALLOCATOR
             .id_map(rdsp, mem::frame::FRAME_SIZE)
             .expect("Unable to map RDST");
-        pic::init(true, rdsp);
+        pic::init(rdsp);
         loop {
             asm::x86_64::instruction::hlt();
         }
