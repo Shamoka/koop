@@ -1,5 +1,5 @@
-#![no_std]
 #![feature(alloc_error_handler)]
+#![no_std]
 
 use mem::allocator::ALLOCATOR;
 use vga::println;

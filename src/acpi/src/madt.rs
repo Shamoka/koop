@@ -4,9 +4,9 @@ use core::mem::size_of;
 
 #[repr(C, packed)]
 pub struct MADT {
-    header: Header,
-    local_apic_address: u32,
-    flags: u32
+    pub header: Header,
+    pub local_apic_address: u32,
+    pub flags: u32
 }
 
 pub struct MADTIter<'a> {
@@ -21,52 +21,52 @@ pub struct EntryHeader {
 }
 
 #[repr(C, packed)]
-pub struct LAPIC {
-    header: EntryHeader,
-    proc_id: u8,
-    apic_id: u8,
-    flags: u32
+pub struct MADT_LAPIC {
+    pub header: EntryHeader,
+    pub proc_id: u8,
+    pub apic_id: u8,
+    pub flags: u32
 }
 
 #[repr(C, packed)]
-pub struct IOAPIC {
-    header: EntryHeader,
-    ioapic_id: u8,
-    _res: u8,
-    ioapic_addr: u32,
-    global_system_interrupt_base: u32
+pub struct MADT_IOAPIC {
+    pub header: EntryHeader,
+    pub ioapic_id: u8,
+    pub _res: u8,
+    pub ioapic_addr: u32,
+    pub global_system_interrupt_base: u32
 }
 
 #[repr(C, packed)]
-pub struct ISO {
-    header: EntryHeader,
-    bus_source: u8,
-    irq_source: u8,
-    global_system_interrupt: u32,
-    flags: u16
+pub struct MADT_ISO {
+    pub header: EntryHeader,
+    pub bus_source: u8,
+    pub irq_source: u8,
+    pub global_system_interrupt: u32,
+    pub flags: u16
 }
 
 #[repr(C, packed)]
-pub struct NMI {
-    header: EntryHeader,
-    proc_id: u8,
-    flags: u16,
-    lint: u8
+pub struct MADT_NMI {
+    pub header: EntryHeader,
+    pub proc_id: u8,
+    pub flags: u16,
+    pub lint: u8
 }
 
 #[repr(C, packed)]
-pub struct LAPICOverride {
-    header: Header,
+pub struct MADT_LAPICOverride {
+    pub header: Header,
     _res: u16,
-    addr: u64
+    pub addr: u64
 }
 
 pub enum Entry {
-    EntryLAPIC(*const LAPIC),
-    EntryIOAPIC(*const IOAPIC),
-    EntryISO(*const ISO),
-    EntryNMI(*const NMI),
-    EntryLAPICOverride(*const LAPICOverride),
+    EntryLAPIC(*const MADT_LAPIC),
+    EntryIOAPIC(*const MADT_IOAPIC),
+    EntryISO(*const MADT_ISO),
+    EntryNMI(*const MADT_NMI),
+    EntryLAPICOverride(*const MADT_LAPICOverride),
     EntryUnknown
 }
 
@@ -89,11 +89,11 @@ impl<'a> Iterator for MADTIter<'a> {
         let entry_ptr = self.pos as *const EntryHeader;
         unsafe {
             let entry = match (*entry_ptr).entry_type {
-                0 => Some(Entry::EntryLAPIC(entry_ptr as *const LAPIC)),
-                1 => Some(Entry::EntryIOAPIC(entry_ptr as *const IOAPIC)),
-                2 => Some(Entry::EntryISO(entry_ptr as *const ISO)),
-                4 => Some(Entry::EntryNMI(entry_ptr as *const NMI)),
-                5 => Some(Entry::EntryLAPICOverride(entry_ptr as *const LAPICOverride)),
+                0 => Some(Entry::EntryLAPIC(entry_ptr as *const MADT_LAPIC)),
+                1 => Some(Entry::EntryIOAPIC(entry_ptr as *const MADT_IOAPIC)),
+                2 => Some(Entry::EntryISO(entry_ptr as *const MADT_ISO)),
+                4 => Some(Entry::EntryNMI(entry_ptr as *const MADT_NMI)),
+                5 => Some(Entry::EntryLAPICOverride(entry_ptr as *const MADT_LAPICOverride)),
                 _ => Some(Entry::EntryUnknown)
             };
             self.pos += (*entry_ptr).length as usize;

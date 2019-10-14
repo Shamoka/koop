@@ -31,7 +31,7 @@ impl Allocator {
             asm::x86_64::reg::efer::set_bit(asm::x86_64::reg::efer::BIT_NXE);
         }
         if let Err(error) = allocator.remap_kernel(new_pml4) {
-            panic!("Unable to rempa the kernel{:?}", error);
+            panic!("Unable to remap the kernel {:?}", error);
         }
         if let Err(error) = allocator.remap_low_memory(new_pml4) {
             panic!("Unable to remap low memory: {:?}", error);

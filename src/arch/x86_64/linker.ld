@@ -12,7 +12,7 @@ SECTIONS
 
 	.text :
 	{
-		*(.text .text*)
+		*(.text .text* .eh_frame)
 		. = ALIGN(4K);
 	}
 

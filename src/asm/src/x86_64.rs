@@ -13,7 +13,7 @@ pub mod instruction {
         pub unsafe fn check_apic() -> bool {
             let edx: usize;
             asm!("
-            mov $$0x80000001, %eax
+            mov $$1, %eax
             cpuid"
             : "={edx}"(edx) ::: "volatile");
             edx & APIC_BIT != 0

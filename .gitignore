@@ -4,6 +4,7 @@
 build/
 .gdb_history
 .session.vim
+tags
 
 
 #Added by cargo
