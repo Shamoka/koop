@@ -1,18 +1,12 @@
 use crate::ioapic::IOApic;
+use crate::lapic::LocalApic;
 use acpi::madt::*;
 use acpi::RSDT;
+use mem::allocator::ALLOCATOR;
 
 extern crate alloc;
 
 use alloc::vec::Vec;
-
-const SPURIOUS: u8 = 0xff;
-
-pub struct LocalApic {
-    _proc_id: u8,
-    id: u8,
-    enabled: bool,
-}
 
 pub struct Apic {
     local_apics: Vec<LocalApic>,
@@ -28,11 +22,7 @@ impl Apic {
     }
 
     pub unsafe fn handle_local_apic(&mut self, apic_ptr: *const MADT_LAPIC) {
-        self.local_apics.push(LocalApic {
-            _proc_id: (*apic_ptr).proc_id,
-            id: (*apic_ptr).apic_id,
-            enabled: (*apic_ptr).flags == 1,
-        });
+        self.local_apics.push(LocalApic::new(apic_ptr));
     }
 
     pub unsafe fn handle_io_apic(&mut self, io_apic_ptr: *const MADT_IOAPIC) {
@@ -63,6 +53,28 @@ impl Apic {
             }
         }
     }
+
+    pub unsafe fn handle_non_maskable_interrupt(&mut self, nmi: *const MADT_NMI) {
+        for local_apic in &mut self.local_apics {
+            if local_apic.id == (*nmi).proc_id || (*nmi).proc_id == 0xff {
+                local_apic.set_nmi((*nmi).lint, (*nmi).flags as u8);
+            }
+        }
+    }
+
+    pub unsafe fn setup_local_apic(&self) {
+        let base = asm::x86_64::reg::apic_base::get_base();
+        if let Err(error) = ALLOCATOR.id_map(base, mem::frame::FRAME_SIZE) {
+            panic!("Unable to map local APIC {:?}", error);
+        }
+        let id = LocalApic::get_local_apic_id(base);
+        LocalApic::set_sivr(base);
+        for lapic in &self.local_apics {
+            if lapic.id == id {
+                lapic.setup_nmi(base);
+            }
+        }
+    }
 }
 
 pub unsafe fn init(rdsp: usize) -> bool {
@@ -80,14 +92,12 @@ pub unsafe fn init(rdsp: usize) -> bool {
                 Entry::EntryLAPIC(ptr) => apic.handle_local_apic(ptr),
                 Entry::EntryIOAPIC(ptr) => apic.handle_io_apic(ptr),
                 Entry::EntryISO(ptr) => apic.handle_interrupt_source_override(ptr),
-                Entry::EntryNMI(_) => vga::println!("Non maskable interrupt found"),
-                Entry::EntryLAPICOverride(_) => vga::println!("Local APIC override found"),
+                Entry::EntryNMI(ptr) => apic.handle_non_maskable_interrupt(ptr),
                 _ => vga::println!("Unknown entry in MADT"),
             }
         }
         if asm::x86_64::instruction::cpuid::check_apic() {
-            let apic = asm::x86_64::reg::apic_base::enable();
-            apic.set_sivr(SPURIOUS);
+            apic.setup_local_apic();
             return true;
         }
     }

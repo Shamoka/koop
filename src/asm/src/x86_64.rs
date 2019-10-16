@@ -40,24 +40,25 @@ pub mod reg {
 
         const APIC_ENABLE_BIT: usize = 1 << 11;
 
-        pub unsafe fn enable() -> crate::x86_64::apic::Apic {
+        pub unsafe fn get_base() -> usize {
             let eax: usize;
             let edx: usize;
             asm!("rdmsr" : "={edx}"(edx), "={eax}"(eax) : "{ecx}"(ID) :::"volatile");
             let base = (eax & !0xFFF) + ((edx & 0b111) << 32);
             asm!("wrmsr" :: "{edx}"(edx), "{eax}"(eax | APIC_ENABLE_BIT), "{ecx}"(ID) ::: "volatile");
-            crate::x86_64::apic::Apic::new(base)
+            base
+        }
+
+        pub unsafe fn enable() {
+            let eax: usize;
+            let edx: usize;
+            asm!("rdmsr" : "={edx}"(edx), "={eax}"(eax) : "{ecx}"(ID) :::"volatile");
+            asm!("wrmsr" :: "{edx}"(edx), "{eax}"(eax | APIC_ENABLE_BIT), "{ecx}"(ID) ::: "volatile");
         }
     }
 }
 
 pub mod apic {
-    const SIVR: usize = 0xF0;
-
-    pub struct Apic {
-        base: usize,
-    }
-
     pub unsafe fn disable_pic() {
         asm!(
             "
@@ -65,22 +66,6 @@ pub mod apic {
         outb %al, $$0xA1
         outb %al, $$0x21"
         );
-    }
-
-    impl Apic {
-        pub const fn new(base: usize) -> Apic {
-            Apic { base: base }
-        }
-
-        pub unsafe fn set_sivr(&self, value: u8) {
-            let mut sivr: usize;
-
-            asm!("mov $0, %rax" : "={rax}"(sivr) : "m"(self.base + SIVR) ::: "volatile");
-            sivr &= !0xFF;
-            sivr |= 1 << 8;
-            sivr |= (value & 0xFF) as usize;
-            asm!("mov %rax, $0" :: "{rax}"(sivr), "m"(self.base + SIVR) :: "volatile");
-        }
     }
 }
 
