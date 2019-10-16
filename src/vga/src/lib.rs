@@ -5,7 +5,7 @@ use spinlock;
 pub static TEXT_BUFFER: spinlock::Mutex<TextBuffer> = spinlock::Mutex::new(TextBuffer {
     addr: 0xb8000 as *mut Buffer,
     row: 0,
-    col: 0
+    col: 0,
 });
 
 type Buffer = [[u16; BUFFER_WIDTH]; BUFFER_HEIGHT];
@@ -16,7 +16,7 @@ const BUFFER_WIDTH: usize = 80;
 pub struct TextBuffer {
     addr: *mut Buffer,
     row: usize,
-    col: usize
+    col: usize,
 }
 
 #[repr(u8)]
@@ -37,7 +37,7 @@ pub enum Color {
     BrightRef = 0xc,
     BrightMagenta = 0xd,
     Yellow = 0xe,
-    White = 0xf
+    White = 0xf,
 }
 
 impl TextBuffer {
@@ -46,7 +46,7 @@ impl TextBuffer {
             match byte {
                 0x20..=0xfe => self.write_byte(byte, bg, fg),
                 b'\n' => self.newline(),
-                _ => ()
+                _ => (),
             };
         }
     }
@@ -62,7 +62,7 @@ impl TextBuffer {
     }
 
     fn write_byte(&mut self, c: u8, bg: Color, fg: Color) {
-        let code: u16 = ((fg as u16 ) << 12) | ((bg as u16) << 8) | (c as u16);
+        let code: u16 = ((fg as u16) << 12) | ((bg as u16) << 8) | (c as u16);
 
         unsafe {
             (*self.addr)[self.row][self.col] = code;

@@ -3,17 +3,17 @@
 
 const UPPER_MEMORY_BOUND: usize = 1 << 20;
 
-mod table;
 mod entry;
-mod stage1;
-mod stage2;
 mod memtree;
 mod slab;
 mod stack;
+mod stage1;
+mod stage2;
+mod table;
 
 pub mod addr;
-pub mod area;
 pub mod allocator;
+pub mod area;
 pub mod block;
 pub mod frame;
 

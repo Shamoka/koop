@@ -10,14 +10,14 @@ const FLAG_BITS: usize = !ADDR_BITS;
 #[derive(Debug)]
 pub struct Entry {
     pub addr: usize,
-    pub flags: usize
+    pub flags: usize,
 }
 
 impl Entry {
     pub fn new(addr: usize, flags: usize) -> Entry {
         Entry {
             addr: addr & ADDR_BITS,
-            flags: flags & FLAG_BITS
+            flags: flags & FLAG_BITS,
         }
     }
 
@@ -41,7 +41,7 @@ impl Entry {
         }
         Entry {
             addr: addr & ADDR_BITS,
-            flags: flags
+            flags: flags,
         }
     }
 

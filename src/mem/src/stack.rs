@@ -1,32 +1,23 @@
-use crate::frame::Frame;
 use crate::block::Block;
+use crate::frame::Frame;
 
 use core::mem::size_of;
 
 pub struct Stack {
     root: *mut Node,
-    pool: *mut Node
+    pool: *mut Node,
 }
 
 struct Node {
     pub frame: Frame,
-    pub next: *mut Node
-}
-
-impl Node {
-    pub unsafe fn count(&self) -> usize {
-        match self.next.is_null() {
-            true => 1,
-            false => 1 + (*self.next).count()
-        }
-    }
+    pub next: *mut Node,
 }
 
 impl Stack {
     pub const fn new() -> Stack {
         Stack {
             root: 0 as *mut Node,
-            pool: 0 as *mut Node
+            pool: 0 as *mut Node,
         }
     }
 

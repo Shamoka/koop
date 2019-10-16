@@ -5,7 +5,7 @@ use asm::x86_64::mmio;
 #[repr(u16)]
 #[derive(Copy, Clone)]
 pub enum ComAddr {
-    Com1 = 0x3F8
+    Com1 = 0x3F8,
 }
 
 pub struct Port {
@@ -16,7 +16,7 @@ pub struct Port {
     modem_control: mmio::Port,
     line_status: mmio::Port,
     _modem_status: mmio::Port,
-    _scratch: mmio::Port
+    _scratch: mmio::Port,
 }
 
 impl Port {
@@ -29,7 +29,7 @@ impl Port {
             modem_control: mmio::Port::new(port as usize + 4),
             line_status: mmio::Port::new(port as usize + 5),
             _modem_status: mmio::Port::new(port as usize + 6),
-            _scratch: mmio::Port::new(port as usize + 7)
+            _scratch: mmio::Port::new(port as usize + 7),
         };
         serial.init();
         serial

@@ -1,9 +1,9 @@
-use crate::stage1;
-use crate::AllocError;
 use crate::area::Area;
 use crate::block::Block;
 use crate::memtree;
 use crate::slab::Slab;
+use crate::stage1;
+use crate::AllocError;
 
 use core::alloc::Layout;
 
@@ -13,7 +13,7 @@ pub struct Allocator<'a> {
     internal: stage1::Allocator,
     buddies: [memtree::Tree<'a>; BUCKETS],
     blocks: memtree::Tree<'a>,
-    node_slab: Slab<memtree::Node<'a>>
+    node_slab: Slab<memtree::Node<'a>>,
 }
 
 impl<'a> Allocator<'a> {
@@ -22,7 +22,7 @@ impl<'a> Allocator<'a> {
             internal: stage1::Allocator::new(mb2),
             buddies: [memtree::Tree::new(); BUCKETS],
             blocks: memtree::Tree::new(),
-            node_slab: Slab::new()
+            node_slab: Slab::new(),
         };
         allocator.buddies[BUCKETS - 1].insert_block(&Block::new(0, BUCKETS - 1));
         unsafe {
@@ -49,8 +49,8 @@ impl<'a> Allocator<'a> {
                     }
                 }
                 self.dealloc_recurse(block);
-            },
-            None => loop {}
+            }
+            None => loop {},
         }
     }
 
@@ -67,9 +67,14 @@ impl<'a> Allocator<'a> {
                             panic!("Cannot pool frame nodes");
                         }
                     }
-                },
-                Err(error) => panic!("Invalid unmap {} {} {} {:?}",
-                    block.addr, block.size(), addr.addr, error)
+                }
+                Err(error) => panic!(
+                    "Invalid unmap {} {} {} {:?}",
+                    block.addr,
+                    block.size(),
+                    addr.addr,
+                    error
+                ),
             }
         }
     }
@@ -95,7 +100,7 @@ impl<'a> Allocator<'a> {
                         self.dealloc_recurse(*(buddy_node as *mut Block));
                     }
                     self.dealloc_recurse(block);
-                },
+                }
                 None => {
                     if let Ok(mut new_node) = self.alloc_node() {
                         (*new_node).content = block;
@@ -116,21 +121,19 @@ impl<'a> Allocator<'a> {
         }
         let target = self.get_order(layout.size());
         match self.alloc_node() {
-            Ok(new_node) => {
-                match self.alloc_iter(target, layout.align()) {
-                    Ok(mut block) => {
-                        block.remove_sign();
-                        unsafe {
-                            (*new_node).content = block;
-                            self.blocks.insert(new_node)
-                        }
-                        block.add_sign();
-                        block.addr as *mut u8
+            Ok(new_node) => match self.alloc_iter(target, layout.align()) {
+                Ok(mut block) => {
+                    block.remove_sign();
+                    unsafe {
+                        (*new_node).content = block;
+                        self.blocks.insert(new_node)
                     }
-                    Err(_) => 0 as *mut u8
+                    block.add_sign();
+                    block.addr as *mut u8
                 }
+                Err(_) => 0 as *mut u8,
             },
-            Err(_) => 0 as *mut u8
+            Err(_) => 0 as *mut u8,
         }
     }
 
@@ -143,8 +146,8 @@ impl<'a> Allocator<'a> {
                     Ok(mut block) => {
                         block.add_sign();
                         Ok(block.addr as *mut memtree::Node<'a>)
-                    },
-                    Err(error) => Err(error)
+                    }
+                    Err(error) => Err(error),
                 }
             }
         }
@@ -168,8 +171,8 @@ impl<'a> Allocator<'a> {
                                 Ok(node) => {
                                     (*node).content = new_block;
                                     self.buddies[new_block.order].insert(node);
-                                },
-                                Err(_) => panic!("Cannot create new block")
+                                }
+                                Err(_) => panic!("Cannot create new block"),
                             };
                         }
                     }
@@ -180,8 +183,8 @@ impl<'a> Allocator<'a> {
                     match self.internal.map(&block) {
                         Err(AllocError::InUse) => {
                             order = block.order;
-                            continue
-                        },
+                            continue;
+                        }
                         Err(error) => return Err(error),
                         Ok(_) => {}
                     }

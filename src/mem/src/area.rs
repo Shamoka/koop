@@ -3,8 +3,8 @@ use crate::frame;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Area {
-     pub base: Addr,
-     pub len: usize,
+    pub base: Addr,
+    pub len: usize,
 }
 
 pub struct AreaIter {
@@ -16,14 +16,14 @@ impl Area {
     pub const fn new(base: usize, len: usize) -> Area {
         Area {
             base: Addr::new(base),
-            len: len
+            len: len,
         }
     }
 
     pub fn order(&self) -> usize {
         for i in 0..64 {
             if self.len < 1 << i {
-                return i
+                return i;
             }
         }
         63

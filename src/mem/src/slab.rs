@@ -6,7 +6,7 @@ const NODE_AVAILABLE_BIT: usize = 1 << 63;
 
 struct Node<T: Sized> {
     content: T,
-    count: usize
+    count: usize,
 }
 
 #[derive(Copy, Clone)]
@@ -14,7 +14,7 @@ pub struct Slab<T: Sized> {
     base: *mut Node<T>,
     end: *mut Node<T>,
     cap: usize,
-    pub order: usize
+    pub order: usize,
 }
 
 impl<T: Sized> Slab<T> {
@@ -23,7 +23,7 @@ impl<T: Sized> Slab<T> {
             base: 0 as *mut Node<T>,
             end: 0 as *mut Node<T>,
             cap: 0,
-            order: 0
+            order: 0,
         }
     }
 
@@ -39,9 +39,8 @@ impl<T: Sized> Slab<T> {
     }
 
     pub unsafe fn give(&self, node_content: *mut T) -> bool {
-        if self.base > node_content as *mut Node<T>
-            || self.end < node_content as *mut Node<T> {
-                return false;
+        if self.base > node_content as *mut Node<T> || self.end < node_content as *mut Node<T> {
+            return false;
         }
         let node = node_content as *mut Node<T>;
         let index = (node as usize - self.base as usize) / size_of::<Node<T>>();
@@ -77,12 +76,15 @@ impl<T: Sized> Node<T> {
 
     pub unsafe fn get(&mut self, index: usize, cap: usize) -> *mut T {
         if let Some((left_index, right_index)) = self.children(index, cap) {
-            let left_count = (*(self as *mut Node<T>).offset((left_index - index) as isize)).count();
-            let right_count = (*(self as *mut Node<T>).offset((right_index - index) as isize)).count();
+            let left_count =
+                (*(self as *mut Node<T>).offset((left_index - index) as isize)).count();
+            let right_count =
+                (*(self as *mut Node<T>).offset((right_index - index) as isize)).count();
             if left_count > right_count {
                 (*(self as *mut Node<T>).offset((left_index - index) as isize)).get(left_index, cap)
             } else if right_count > 0 {
-                (*(self as *mut Node<T>).offset((right_index - index) as isize)).get(right_index, cap)
+                (*(self as *mut Node<T>).offset((right_index - index) as isize))
+                    .get(right_index, cap)
             } else if self.available() {
                 self.mark_unavailable();
                 self.decrement_count(index);
@@ -102,8 +104,9 @@ impl<T: Sized> Node<T> {
     pub unsafe fn reset_count(&mut self, index: usize, cap: usize) {
         let addr = self as *mut Node<T>;
         if let Some((left_index, right_index)) = self.children(index, cap) {
-            self.count = (*addr.offset((left_index - index) as isize)).count() +
-                (*addr.offset((right_index - index) as isize)).count() + 1;
+            self.count = (*addr.offset((left_index - index) as isize)).count()
+                + (*addr.offset((right_index - index) as isize)).count()
+                + 1;
         } else {
             self.count = 1;
         }

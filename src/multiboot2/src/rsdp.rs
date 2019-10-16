@@ -2,7 +2,7 @@ use crate::Tag;
 
 pub enum Info {
     V1(RSDPv1),
-    V2(RSDPv2)
+    V2(RSDPv2),
 }
 
 #[derive(Copy, Clone)]
@@ -12,7 +12,7 @@ pub struct RSDPv1 {
     checksum: u8,
     oem_id: [u8; 6],
     revision: u8,
-    address: u32
+    address: u32,
 }
 
 #[derive(Copy, Clone)]
@@ -22,7 +22,7 @@ pub struct RSDPv2 {
     length: u32,
     address: u64,
     checksum: u8,
-    _res: [u8; 3]
+    _res: [u8; 3],
 }
 
 impl Info {
@@ -43,7 +43,7 @@ impl Info {
     pub fn addr(&self) -> usize {
         match *self {
             Info::V1(v1) => v1.address as usize,
-            Info::V2(v2) => v2.address as usize
+            Info::V2(v2) => v2.address as usize,
         }
     }
 }

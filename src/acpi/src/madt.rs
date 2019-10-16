@@ -6,18 +6,18 @@ use core::mem::size_of;
 pub struct MADT {
     pub header: Header,
     pub local_apic_address: u32,
-    pub flags: u32
+    pub flags: u32,
 }
 
 pub struct MADTIter<'a> {
     madt: &'a MADT,
-    pos: usize
+    pos: usize,
 }
 
 #[repr(C, packed)]
 pub struct EntryHeader {
     pub entry_type: u8,
-    pub length: u8
+    pub length: u8,
 }
 
 #[repr(C, packed)]
@@ -25,7 +25,7 @@ pub struct MADT_LAPIC {
     pub header: EntryHeader,
     pub proc_id: u8,
     pub apic_id: u8,
-    pub flags: u32
+    pub flags: u32,
 }
 
 #[repr(C, packed)]
@@ -34,7 +34,7 @@ pub struct MADT_IOAPIC {
     pub ioapic_id: u8,
     pub _res: u8,
     pub ioapic_addr: u32,
-    pub global_system_interrupt_base: u32
+    pub global_system_interrupt_base: u32,
 }
 
 #[repr(C, packed)]
@@ -43,7 +43,7 @@ pub struct MADT_ISO {
     pub bus_source: u8,
     pub irq_source: u8,
     pub global_system_interrupt: u32,
-    pub flags: u16
+    pub flags: u16,
 }
 
 #[repr(C, packed)]
@@ -51,14 +51,14 @@ pub struct MADT_NMI {
     pub header: EntryHeader,
     pub proc_id: u8,
     pub flags: u16,
-    pub lint: u8
+    pub lint: u8,
 }
 
 #[repr(C, packed)]
 pub struct MADT_LAPICOverride {
     pub header: Header,
     _res: u16,
-    pub addr: u64
+    pub addr: u64,
 }
 
 pub enum Entry {
@@ -67,7 +67,7 @@ pub enum Entry {
     EntryISO(*const MADT_ISO),
     EntryNMI(*const MADT_NMI),
     EntryLAPICOverride(*const MADT_LAPICOverride),
-    EntryUnknown
+    EntryUnknown,
 }
 
 impl MADT {
@@ -84,7 +84,7 @@ impl<'a> Iterator for MADTIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos - self.madt as *const MADT as usize >= self.madt.header.length as usize {
-            return None
+            return None;
         }
         let entry_ptr = self.pos as *const EntryHeader;
         unsafe {
@@ -93,8 +93,10 @@ impl<'a> Iterator for MADTIter<'a> {
                 1 => Some(Entry::EntryIOAPIC(entry_ptr as *const MADT_IOAPIC)),
                 2 => Some(Entry::EntryISO(entry_ptr as *const MADT_ISO)),
                 4 => Some(Entry::EntryNMI(entry_ptr as *const MADT_NMI)),
-                5 => Some(Entry::EntryLAPICOverride(entry_ptr as *const MADT_LAPICOverride)),
-                _ => Some(Entry::EntryUnknown)
+                5 => Some(Entry::EntryLAPICOverride(
+                    entry_ptr as *const MADT_LAPICOverride,
+                )),
+                _ => Some(Entry::EntryUnknown),
             };
             self.pos += (*entry_ptr).length as usize;
             entry

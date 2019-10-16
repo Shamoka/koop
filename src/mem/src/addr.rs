@@ -7,9 +7,7 @@ pub struct Addr {
 
 impl Addr {
     pub const fn new(value: usize) -> Addr {
-        Addr {
-            addr: value,
-        }
+        Addr { addr: value }
     }
 
     pub fn get_table_index(&self, level: usize) -> usize {

@@ -1,6 +1,6 @@
 pub struct Info {
     pub mem_lower: u32,
-    pub mem_upper: u32
+    pub mem_upper: u32,
 }
 
 impl Info {
@@ -10,7 +10,7 @@ impl Info {
         }
         Info {
             mem_lower: unsafe { *((tag.addr + 8) as *const u32) },
-            mem_upper: unsafe { *((tag.addr + 12) as *const u32) }
+            mem_upper: unsafe { *((tag.addr + 12) as *const u32) },
         }
     }
 }

@@ -8,7 +8,7 @@ impl Block {
     pub const fn new(addr: usize, order: usize) -> Block {
         Block {
             order: order,
-            addr: addr
+            addr: addr,
         }
     }
 
@@ -20,9 +20,8 @@ impl Block {
         if self.addr + self.size() >= 0o776_000_000_000_0000 {
             return false;
         }
-        if (order == target && target >= 12)
-            || (target < 12 && order == 12) {
-                return true;
+        if (order == target && target >= 12) || (target < 12 && order == 12) {
+            return true;
         }
         false
     }
@@ -65,12 +64,12 @@ impl Block {
         if self.satisfy_align(align) {
             Some(Block {
                 order: self.order,
-                addr: self.buddy_addr()
+                addr: self.buddy_addr(),
             })
         } else {
             let block = Block {
                 order: self.order,
-                addr: self.addr
+                addr: self.addr,
             };
             self.addr = self.buddy_addr();
             Some(block)

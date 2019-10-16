@@ -5,7 +5,7 @@ use core::cmp::Ordering;
 pub enum TakeResult<'a> {
     Node(*mut Node<'a>),
     Block(Block),
-    Empty
+    Empty,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -26,21 +26,21 @@ pub struct Node<'a> {
     pub left: NodeType<'a>,
     right: NodeType<'a>,
     parent: NodeType<'a>,
-    color: Color
+    color: Color,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum NodeType<'a> {
     Leaf(*mut Node<'a>),
     Node(*mut Node<'a>),
-    Nil
+    Nil,
 }
 
 impl<'a> NodeType<'a> {
     unsafe fn is_node(&self) -> bool {
         match *self {
             NodeType::Node(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -52,7 +52,7 @@ impl<'a> NodeType<'a> {
                     panic!("Trying to turn a leaf node red");
                 }
             }
-            NodeType::Nil => panic!("Setting nil node to red")
+            NodeType::Nil => panic!("Setting nil node to red"),
         }
     }
 
@@ -60,7 +60,7 @@ impl<'a> NodeType<'a> {
         match *self {
             NodeType::Node(ptr) => ptr,
             NodeType::Leaf(ptr) => ptr,
-            NodeType::Nil => 0 as *mut Node
+            NodeType::Nil => 0 as *mut Node,
         }
     }
 
@@ -68,7 +68,7 @@ impl<'a> NodeType<'a> {
         match *self {
             NodeType::Node(node) => (*node).color,
             NodeType::Leaf(_) => Color::Black,
-            NodeType::Nil => panic!("Color get nil")
+            NodeType::Nil => panic!("Color get nil"),
         }
     }
 
@@ -76,7 +76,7 @@ impl<'a> NodeType<'a> {
         match *self {
             NodeType::Node(ptr) => (*ptr).parent.ptr(),
             NodeType::Leaf(ptr) => ptr,
-            NodeType::Nil => 0 as *mut Node
+            NodeType::Nil => 0 as *mut Node,
         }
     }
 
@@ -84,7 +84,7 @@ impl<'a> NodeType<'a> {
         match *self {
             NodeType::Node(node) => (*node).parent = *new_parent,
             NodeType::Leaf(ref mut leaf) => *leaf = new_parent.ptr(),
-            NodeType::Nil => panic!("Parent set nil")
+            NodeType::Nil => panic!("Parent set nil"),
         }
     }
 
@@ -92,26 +92,24 @@ impl<'a> NodeType<'a> {
         let parent_node = self.parent_ptr();
         match parent_node.is_null() {
             true => None,
-            false => {
-                match (*parent_node).parent {
-                    NodeType::Node(_) => Some(&mut (*parent_node).parent),
-                    _ => None
-                }
-            }
+            false => match (*parent_node).parent {
+                NodeType::Node(_) => Some(&mut (*parent_node).parent),
+                _ => None,
+            },
         }
     }
 
     unsafe fn left(&self) -> &'a mut NodeType<'a> {
         match *self {
             NodeType::Node(ptr) => &mut (*ptr).left,
-            _ => panic!("Accessing null ptr in memory tree: left")
+            _ => panic!("Accessing null ptr in memory tree: left"),
         }
     }
 
     unsafe fn right(&self) -> &'a mut NodeType<'a> {
         match *self {
             NodeType::Node(ptr) => &mut (*ptr).right,
-            _ => panic!("Accessing null ptr in memory tree: right")
+            _ => panic!("Accessing null ptr in memory tree: right"),
         }
     }
 
@@ -137,15 +135,15 @@ impl<'a> NodeType<'a> {
                 } else {
                     Some(gp.left())
                 }
-            },
-            None => None
+            }
+            None => None,
         }
     }
 
     unsafe fn content(&self) -> &'a mut Block {
         match *self {
             NodeType::Node(ptr) => &mut (*ptr).content,
-            _ => panic!("Accessing the content of a null node in memory tree")
+            _ => panic!("Accessing the content of a null node in memory tree"),
         }
     }
 
@@ -180,7 +178,7 @@ impl<'a> NodeType<'a> {
         let mut new_node = *self.right();
         let parent = match self.parent_ptr().is_null() {
             true => NodeType::Nil,
-            false =>  NodeType::Node(self.parent_ptr())
+            false => NodeType::Node(self.parent_ptr()),
         };
 
         if !new_node.is_node() {
@@ -207,7 +205,7 @@ impl<'a> NodeType<'a> {
         let mut new_node = *self.left();
         let parent = match self.parent_ptr().is_null() {
             true => NodeType::Nil,
-            false =>  NodeType::Node(self.parent_ptr())
+            false => NodeType::Node(self.parent_ptr()),
         };
 
         if !new_node.is_node() {
@@ -235,7 +233,7 @@ impl<'a> NodeType<'a> {
             return self.set_color(Color::Black);
         }
         if (*self.parent_ptr()).color == Color::Black {
-            return ;
+            return;
         }
         if let Some(uncle) = self.uncle() {
             if uncle.get_color() == Color::Red {
@@ -292,43 +290,41 @@ impl<'a> NodeType<'a> {
     pub unsafe fn delete(&mut self, key: usize) -> Option<(*mut Node<'a>, *mut Node<'a>)> {
         let ret = self.ptr();
         match self.is_node() {
-            true => {
-                match self.content().addr.cmp(&key) {
-                    Ordering::Less => self.right().delete(key),
-                    Ordering::Greater => self.left().delete(key),
-                    Ordering::Equal => {
-                        if self.left().is_node() && self.right().is_node() {
-                            let mut leftmost = self.right().leftmost();
-                            let tmp = *self.content();
-                            *self.content() = *leftmost.content();
-                            *leftmost.content() = tmp;
-                            leftmost.delete(tmp.addr)
-                        } else  {
-                            let child = match self.left().is_node() {
-                                true => self.left(),
-                                false => self.right()
-                            };
-                            self.replace_child(child);
-                            if self.get_color() == Color::Black {
-                                if child.get_color() == Color::Red {
-                                    child.set_color(Color::Black);
-                                } else {
-                                    child.delete_1()
-                                }
+            true => match self.content().addr.cmp(&key) {
+                Ordering::Less => self.right().delete(key),
+                Ordering::Greater => self.left().delete(key),
+                Ordering::Equal => {
+                    if self.left().is_node() && self.right().is_node() {
+                        let mut leftmost = self.right().leftmost();
+                        let tmp = *self.content();
+                        *self.content() = *leftmost.content();
+                        *leftmost.content() = tmp;
+                        leftmost.delete(tmp.addr)
+                    } else {
+                        let child = match self.left().is_node() {
+                            true => self.left(),
+                            false => self.right(),
+                        };
+                        self.replace_child(child);
+                        if self.get_color() == Color::Black {
+                            if child.get_color() == Color::Red {
+                                child.set_color(Color::Black);
+                            } else {
+                                child.delete_1()
                             }
-                            Some((ret, child.ptr()))
                         }
+                        Some((ret, child.ptr()))
                     }
                 }
             },
-            false => None
+            false => None,
         }
     }
 
     unsafe fn replace_child(&mut self, child: &mut NodeType<'a>) {
         let parent = match self.parent_ptr().is_null() {
             true => NodeType::Nil,
-            false => NodeType::Node(self.parent_ptr())
+            false => NodeType::Node(self.parent_ptr()),
         };
         child.set_parent(&parent);
         if parent.is_node() {
@@ -374,12 +370,15 @@ impl<'a> NodeType<'a> {
         if let Some(&mut mut s) = self.sibling() {
             if s.is_node() {
                 let mut parent = NodeType::Node(self.parent_ptr());
-                if parent.get_color() == Color::Black && s.get_color() == Color::Black
-                    && s.right().get_color() == Color::Black && s.left().get_color() == Color::Black {
-                        s.set_color(Color::Red);
-                        parent.delete_1();
-                    } else {
-                        self.delete_4();
+                if parent.get_color() == Color::Black
+                    && s.get_color() == Color::Black
+                    && s.right().get_color() == Color::Black
+                    && s.left().get_color() == Color::Black
+                {
+                    s.set_color(Color::Red);
+                    parent.delete_1();
+                } else {
+                    self.delete_4();
                 }
             }
         }
@@ -388,12 +387,15 @@ impl<'a> NodeType<'a> {
     unsafe fn delete_4(&mut self) {
         if let Some(&mut mut s) = self.sibling() {
             let mut parent = NodeType::Node(self.parent_ptr());
-            if parent.get_color() == Color::Red && s.get_color() == Color::Black
-                && s.right().get_color() == Color::Black && s.left().get_color() == Color::Black {
-                    s.set_color(Color::Red);
-                    parent.set_color(Color::Black);
-                } else {
-                    self.delete_5();
+            if parent.get_color() == Color::Red
+                && s.get_color() == Color::Black
+                && s.right().get_color() == Color::Black
+                && s.left().get_color() == Color::Black
+            {
+                s.set_color(Color::Red);
+                parent.set_color(Color::Black);
+            } else {
+                self.delete_5();
             }
         }
     }
@@ -402,17 +404,21 @@ impl<'a> NodeType<'a> {
         if let Some(&mut mut s) = self.sibling() {
             if s.get_color() == Color::Black {
                 let parent = NodeType::Node(self.parent_ptr());
-                if *self == *parent.left() && s.right().get_color() == Color::Black
-                    && s.left().get_color() == Color::Red {
-                        s.set_color(Color::Red);
-                        s.left().set_color(Color::Black);
-                        s.rotate_right();
-                    } else if *self == *parent.right() && s.left().get_color() == Color::Black
-                        && s.right().get_color() == Color::Red {
-                            s.set_color(Color::Red);
-                            s.right().set_color(Color::Red);
-                            s.rotate_left();
-                    }
+                if *self == *parent.left()
+                    && s.right().get_color() == Color::Black
+                    && s.left().get_color() == Color::Red
+                {
+                    s.set_color(Color::Red);
+                    s.left().set_color(Color::Black);
+                    s.rotate_right();
+                } else if *self == *parent.right()
+                    && s.left().get_color() == Color::Black
+                    && s.right().get_color() == Color::Red
+                {
+                    s.set_color(Color::Red);
+                    s.right().set_color(Color::Red);
+                    s.rotate_left();
+                }
             }
         }
         self.delete_6();
@@ -443,9 +449,9 @@ impl<'a> NodeType<'a> {
             } else if let Some(res) = self.right().find_by_align(align) {
                 return Some(res);
             }
-            return None
+            return None;
         }
-        return None
+        return None;
     }
 }
 
@@ -483,7 +489,7 @@ impl<'a, 'b> Tree<'a> {
         }
     }
 
-    pub fn delete_node(&mut self, node: *mut NodeType<'a>) -> Option<*mut Node<'a>>{
+    pub fn delete_node(&mut self, node: *mut NodeType<'a>) -> Option<*mut Node<'a>> {
         unsafe {
             match (*node).delete((*node).content().addr) {
                 Some((ret, new_root_node)) => {
@@ -498,8 +504,8 @@ impl<'a, 'b> Tree<'a> {
                         }
                     };
                     Some(ret)
-                },
-                None => None
+                }
+                None => None,
             }
         }
     }
@@ -519,8 +525,8 @@ impl<'a, 'b> Tree<'a> {
                         }
                     };
                     Some(ret)
-                },
-                None => None
+                }
+                None => None,
             }
         }
     }
@@ -532,7 +538,7 @@ impl<'a, 'b> Tree<'a> {
                 self.root.bst_insert(&mut new_node);
             } else {
                 new_node.set_parent(&NodeType::Nil);
-                *new_node.left() =  NodeType::Leaf(node);
+                *new_node.left() = NodeType::Leaf(node);
                 *new_node.right() = NodeType::Leaf(node);
                 new_node.set_color(Color::Black);
                 self.root = new_node;

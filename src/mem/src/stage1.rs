@@ -1,13 +1,13 @@
 use crate::addr::Addr;
 use crate::allocator::PML4_ADDR;
 use crate::area::Area;
+use crate::block::Block;
 use crate::entry;
 use crate::entry::Entry;
 use crate::frame;
 use crate::table::{TableLevel, PML4};
 use crate::AllocError;
 use crate::UPPER_MEMORY_BOUND;
-use crate::block::Block;
 
 const NEW_PML4: Addr = Addr::new(0xdeadbeef000);
 
@@ -24,7 +24,7 @@ impl Allocator {
         };
         let (new_pml4, pml4_frame) = match allocator.create_new_pml4() {
             Ok(res) => res,
-            Err(error) => panic!("Unable to create a new PML4: {:?}", error)
+            Err(error) => panic!("Unable to create a new PML4: {:?}", error),
         };
         unsafe {
             asm::x86_64::tlb::flush();
@@ -51,10 +51,7 @@ impl Allocator {
         for page in area.pages() {
             if let Err(error) = self.pml4.map_frame(
                 &page,
-                entry::Entry::new(
-                    area.base.addr,
-                    entry::FLAG_PRESENT | entry::FLAG_WRITABLE,
-                ),
+                entry::Entry::new(area.base.addr, entry::FLAG_PRESENT | entry::FLAG_WRITABLE),
                 &mut self.frame_allocator,
             ) {
                 return Err(error);

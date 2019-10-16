@@ -8,7 +8,7 @@ pub struct Header {
     pub oem_tabel_id: [u8; 8],
     pub oem_revision: u32,
     pub creator_id: u32,
-    pub creator_revision: u32
+    pub creator_revision: u32,
 }
 
 impl Header {

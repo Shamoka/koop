@@ -19,30 +19,30 @@ pub struct StackFrame {
     pub cs: u64,
     pub rflags: u64,
     pub sp: u64,
-    pub ss: u64
+    pub ss: u64,
 }
 
-type HandlerFunc = extern "x86-interrupt" fn (&mut StackFrame);
-type HandlerFuncError = extern "x86-interrupt" fn (&mut StackFrame, usize);
+type HandlerFunc = extern "x86-interrupt" fn(&mut StackFrame);
+type HandlerFuncError = extern "x86-interrupt" fn(&mut StackFrame, usize);
 type IDTPtr = *const [Entry; 256];
 
 #[repr(C)]
 pub struct IDT_ {
     entries: UnsafeCell<[Entry; 256]>,
-    mutex: Mutex<()>
+    mutex: Mutex<()>,
 }
 
 #[repr(C, packed)]
 struct IDTR {
     size: u16,
-    ptr: usize
+    ptr: usize,
 }
 
 impl IDT_ {
     pub const fn new() -> IDT_ {
         IDT_ {
             entries: UnsafeCell::new([Entry::new_empty(); 256]),
-            mutex: Mutex::new(())
+            mutex: Mutex::new(()),
         }
     }
 
@@ -60,7 +60,7 @@ impl IDT_ {
     unsafe fn load(&self, ptr: IDTPtr) {
         let idt_r = IDTR {
             size: 4096 - 1,
-            ptr: ptr as usize
+            ptr: ptr as usize,
         };
         asm!("lidt ($0)" :: "r" (&idt_r as *const IDTR));
     }

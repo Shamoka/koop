@@ -59,10 +59,12 @@ pub mod apic {
     }
 
     pub unsafe fn disable_pic() {
-        asm!("
+        asm!(
+            "
         mov $$0xFF, %al
         outb %al, $$0xA1
-        outb %al, $$0x21");
+        outb %al, $$0x21"
+        );
     }
 
     impl Apic {
@@ -85,8 +87,8 @@ pub mod apic {
 pub mod tlb {
     pub unsafe fn flush() {
         let mut value: usize;
-        asm!("mov %cr3, %rax" : "={rax}"(value) :::: "volatile"); 
-        asm!("mov %rax, %cr3" :: "{rax}"(value) ::: "volatile"); 
+        asm!("mov %cr3, %rax" : "={rax}"(value) :::: "volatile");
+        asm!("mov %rax, %cr3" :: "{rax}"(value) ::: "volatile");
     }
 
     pub unsafe fn update(new_value: usize) {
@@ -96,11 +98,11 @@ pub mod tlb {
 
 pub mod mmio {
     pub struct Port {
-        addr: usize
+        addr: usize,
     }
 
     impl Port {
-        pub fn new(new_addr: usize) -> Port{
+        pub fn new(new_addr: usize) -> Port {
             Port { addr: new_addr }
         }
 

@@ -3,9 +3,9 @@
 
 use idt::IDT;
 
-mod pic;
 mod apic;
 mod ioapic;
+mod pic;
 
 pub unsafe fn init(rdsp: usize) {
     IDT.init();

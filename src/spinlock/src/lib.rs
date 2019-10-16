@@ -1,33 +1,33 @@
 #![no_std]
 
-use core::sync::atomic::{AtomicBool, Ordering};
 use core::cell::UnsafeCell;
 use core::marker::Sized;
 use core::ops::{Deref, DerefMut};
+use core::sync::atomic::{AtomicBool, Ordering};
 
 pub struct Mutex<T: Sized> {
     lock: AtomicBool,
-    content: UnsafeCell<T>
+    content: UnsafeCell<T>,
 }
 
 pub struct Guard<'a, T: Sized> {
     lock: &'a AtomicBool,
-    content: &'a mut T
+    content: &'a mut T,
 }
 
 impl<T: Sized> Mutex<T> {
     pub const fn new(value: T) -> Mutex<T> {
         Mutex {
             lock: AtomicBool::new(false),
-            content: UnsafeCell::new(value)
+            content: UnsafeCell::new(value),
         }
     }
 
     pub fn lock(&self) -> Guard<T> {
         while self.lock.compare_and_swap(false, true, Ordering::Acquire) {}
         Guard {
-            lock: & self.lock,
-            content: unsafe { &mut *self.content.get() }
+            lock: &self.lock,
+            content: unsafe { &mut *self.content.get() },
         }
     }
 }
