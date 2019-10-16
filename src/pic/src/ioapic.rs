@@ -1,7 +1,6 @@
 use acpi::madt::MADT_IOAPIC;
 use mem::allocator::ALLOCATOR;
 
-
 pub struct IOApic {
     id: u8,
     addr: u32,
@@ -29,7 +28,14 @@ impl IOApic {
             }
             let ver = io_apic.read_reg(Self::IOAPICVER);
             io_apic.max_irq = (ver >> 16) & 0xff;
+            io_apic.remap();
             io_apic
+        }
+
+        unsafe fn remap(&self)  {
+            for irq in self.int_base..self.max_irq {
+                self.write_rtbl(irq as u8, (32 + irq) as u64);
+            }
         }
 
         unsafe fn get_selector(&self, reg: u8) -> u32 {
