@@ -10,13 +10,24 @@ pub mod instruction {
     pub mod cpuid {
         const APIC_BIT: usize = 1 << 9;
 
+        const TSC_BIT: usize = 1 << 24;
+
         pub unsafe fn check_apic() -> bool {
             let edx: usize;
             asm!("
-            mov $$1, %eax
+            mov eax, 1
             cpuid"
-            : "={edx}"(edx) ::: "volatile");
+            : "={edx}"(edx) ::: "intel", "volatile");
             edx & APIC_BIT != 0
+        }
+
+        pub unsafe fn check_tsc_deadline() -> bool {
+            let ecx: usize;
+            asm!("
+            mov eax, 1
+            cpuid"
+            : "={ecx}"(ecx) ::: "intel", "volatile");
+            ecx & TSC_BIT != 0
         }
     }
 }
