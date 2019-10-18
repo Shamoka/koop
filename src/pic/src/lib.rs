@@ -7,12 +7,11 @@ mod apic;
 mod ioapic;
 mod lapic;
 mod pic;
-mod timer;
 
 pub unsafe fn init(rdsp: usize) {
     IDT.init();
-    if apic::init(rdsp) == false {
+    if let Some(_apic) = apic::init(rdsp) {
+    } else {
         pic::init();
     }
-    let timer = timer::Timer::new();
 }

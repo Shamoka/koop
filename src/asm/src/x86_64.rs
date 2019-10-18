@@ -29,6 +29,15 @@ pub mod instruction {
             : "={ecx}"(ecx) ::: "intel", "volatile");
             ecx & TSC_BIT != 0
         }
+
+        pub unsafe fn get_local_apic_id() -> u8 {
+            let ebx: usize;
+            asm!("
+            mov eax, 1
+            cpuid"
+            : "={ebx}"(ebx) ::: "intel", "volatile");
+            (ebx >> 24) as u8
+        }
     }
 }
 

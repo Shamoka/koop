@@ -1,11 +1,13 @@
 use acpi::madt::MADT_LAPIC;
+use mem::allocator::ALLOCATOR;
 
 pub struct LocalApic {
     pub proc_id: u8,
     pub id: u8,
     pub enabled: bool,
-    pub nmi: u64,
-    pub nmi_pin: u8,
+    nmi: u64,
+    nmi_pin: u8,
+    base: Option<usize>,
 }
 
 impl LocalApic {
@@ -29,7 +31,19 @@ impl LocalApic {
             enabled: (*ptr).flags == 1,
             nmi: 0,
             nmi_pin: 0,
+            base: None,
         }
+    }
+
+    pub unsafe fn map(&mut self) {
+        if self.base.is_some() {
+            panic!("Trying to map an already mapped local APIC");
+        }
+        let base = asm::x86_64::reg::apic_base::get_base();
+        if let Err(error) = ALLOCATOR.id_map(base, mem::frame::FRAME_SIZE) {
+            panic!("Unable to map local APIC {:?}", error);
+        }
+        self.base = Some(base);
     }
 
     pub unsafe fn set_nmi(&mut self, nmi_pin: u8, flags: u8) {
@@ -43,45 +57,43 @@ impl LocalApic {
         self.nmi_pin = nmi_pin;
     }
 
-    pub unsafe fn setup_nmi(&self, base: usize) {
-        if self.nmi != 0 {
-            let lvt_addr: usize;
-            if self.nmi_pin == 0 {
-                lvt_addr = base + Self::LVT_LINT0_REG;
-            } else if self.nmi_pin == 1 {
-                lvt_addr = base + Self::LVT_LINT1_REG;
-            } else {
-                panic!("Unknown LINT pin for NMI");
+    pub unsafe fn setup_nmi(&self) {
+        if let Some(base) = self.base {
+            if self.nmi != 0 {
+                let lvt_addr: usize;
+                if self.nmi_pin == 0 {
+                    lvt_addr = base + Self::LVT_LINT0_REG;
+                } else if self.nmi_pin == 1 {
+                    lvt_addr = base + Self::LVT_LINT1_REG;
+                } else {
+                    panic!("Unknown LINT pin for NMI");
+                }
+                asm!("mov [ecx], eax"
+                    :: "{ecx}"(lvt_addr), "{eax}"(self.nmi)
+                    :: "intel", "volatile");
             }
-            asm!("mov [ecx], eax"
-                :: "{ecx}"(lvt_addr), "{eax}"(self.nmi)
-                :: "intel", "volatile");
+        } else {
+            panic!("Accessing an unmapped local Apic");
         }
     }
 
-    pub unsafe fn set_sivr(base: usize) {
+    pub unsafe fn set_sivr(&self) {
         let mut sivr: usize;
 
-        asm!("mov rax, [rcx]"
-            : "={rax}"(sivr)
-            : "{rcx}"(base + Self::APIC_SIV_REG)
-            :: "intel", "volatile");
-        sivr &= !0xFF;
-        sivr |= 1 << 8;
-        sivr |= (Self::SIVR & 0xFF) as usize;
-        asm!("mov [rcx], rax"
-            :: "{rax}"(sivr),
-            "{rcx}"(base + Self::APIC_SIV_REG)
-            :: "intel", "volatile");
-    }
-
-    pub unsafe fn get_local_apic_id(base: usize) -> u8 {
-        let value: u32;
-
-        asm!("mov ecx, [eax]"
-            : "={ecx}"(value)
-            : "{eax}"(base + Self::APIC_ID_REG)
-            :: "volatile", "intel");
-        (value >> 24) as u8
+        if let Some(base) = self.base {
+            asm!("mov rax, [rcx]"
+                : "={rax}"(sivr)
+                : "{rcx}"(base + Self::APIC_SIV_REG)
+                :: "intel", "volatile");
+            sivr &= !0xFF;
+            sivr |= 1 << 8;
+            sivr |= (Self::SIVR & 0xFF) as usize;
+            asm!("mov [rcx], rax"
+                :: "{rax}"(sivr),
+                "{rcx}"(base + Self::APIC_SIV_REG)
+                :: "intel", "volatile");
+        } else {
+            panic!("Accessing an unmapped local Apic");
+        }
     }
 }

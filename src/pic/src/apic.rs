@@ -2,7 +2,6 @@ use crate::ioapic::IOApic;
 use crate::lapic::LocalApic;
 use acpi::madt::*;
 use acpi::RSDT;
-use mem::allocator::ALLOCATOR;
 
 extern crate alloc;
 
@@ -62,22 +61,28 @@ impl Apic {
         }
     }
 
-    pub unsafe fn setup_local_apic(&self) {
-        let base = asm::x86_64::reg::apic_base::get_base();
-        if let Err(error) = ALLOCATOR.id_map(base, mem::frame::FRAME_SIZE) {
-            panic!("Unable to map local APIC {:?}", error);
-        }
-        let id = LocalApic::get_local_apic_id(base);
-        LocalApic::set_sivr(base);
-        for lapic in &self.local_apics {
+    pub unsafe fn get_current_local_apic(&mut self) -> Option<&mut LocalApic> {
+        let id = asm::x86_64::instruction::cpuid::get_local_apic_id();
+        for lapic in &mut self.local_apics {
             if lapic.id == id {
-                lapic.setup_nmi(base);
+                return Some(lapic);
             }
+        }
+        None
+    }
+
+    pub unsafe fn setup_local_apic(&mut self) {
+        if let Some(lapic) = self.get_current_local_apic() {
+            lapic.map();
+            lapic.set_sivr();
+            lapic.setup_nmi();
+        } else {
+            panic!("Unable to find local APIC");
         }
     }
 }
 
-pub unsafe fn init(rdsp: usize) -> bool {
+pub unsafe fn init(rdsp: usize) -> Option<Apic> {
     let rsdt_ptr = rdsp as *const RSDT;
     if (*rsdt_ptr).validate() == false {
         panic!("Invalid RSDT");
@@ -98,8 +103,8 @@ pub unsafe fn init(rdsp: usize) -> bool {
         }
         if asm::x86_64::instruction::cpuid::check_apic() {
             apic.setup_local_apic();
-            return true;
+            return Some(apic);
         }
     }
-    false
+    None
 }
