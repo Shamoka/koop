@@ -76,6 +76,7 @@ impl Apic {
             lapic.map();
             lapic.set_sivr();
             lapic.setup_nmi();
+            lapic.init_timer();
         } else {
             panic!("Unable to find local APIC");
         }

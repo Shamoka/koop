@@ -7,6 +7,14 @@ pub mod instruction {
         asm!("hlt");
     }
 
+    pub unsafe fn rdtsc() -> usize {
+        let eax: usize;
+        let edx: usize;
+
+        asm!("rdtsc" : "={eax}"(eax), "={edx}"(edx));
+        ((edx as usize) << 32) + eax as usize
+    }
+
     pub mod cpuid {
         const APIC_BIT: usize = 1 << 9;
 
@@ -43,7 +51,7 @@ pub mod instruction {
 
 pub mod reg {
     pub mod efer {
-        const ID: usize = 0xC0000080;
+        const ID: usize = 0xc0000080;
 
         pub const BIT_NXE: usize = 11;
 
@@ -56,7 +64,7 @@ pub mod reg {
     }
 
     pub mod apic_base {
-        const ID: usize = 0x1B;
+        const ID: usize = 0x1b;
 
         const APIC_ENABLE_BIT: usize = 1 << 11;
 
@@ -74,6 +82,16 @@ pub mod reg {
             let edx: usize;
             asm!("rdmsr" : "={edx}"(edx), "={eax}"(eax) : "{ecx}"(ID) :::"volatile");
             asm!("wrmsr" :: "{edx}"(edx), "{eax}"(eax | APIC_ENABLE_BIT), "{ecx}"(ID) ::: "volatile");
+        }
+    }
+
+    pub mod tsc_deadline {
+        const ID: usize = 0x6e0;
+
+        pub unsafe fn set(value: usize) {
+            let eax: u32 = value as u32;
+            let edx: u32 = (value << 32) as u32;
+            asm!("wrmsr" :: "{edx}"(edx), "{eax}"(eax), "{ecx}"(ID) ::: "volatile");
         }
     }
 }

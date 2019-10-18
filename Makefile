@@ -69,6 +69,9 @@ riso:	$(ISO)
 run-debug:	$(ISO)
 	qemu-system-x86_64 -smp 2 -cdrom $(ISO) $(QEMU_OPT) -s -S -d int -no-reboot
 
+run-kvm-debug:	$(ISO)
+	qemu-system-x86_64 -smp 2 --enable-kvm -cpu host -cdrom $(ISO) $(QEMU_OPT) -s -S -d int -no-reboot
+
 iso:	$(ISO)
 
 $(OBJDIR)/%.o:	$(ASMDIR)/%.asm | $(OBJDIR)

@@ -1,6 +1,13 @@
 use acpi::madt::MADT_LAPIC;
 use mem::allocator::ALLOCATOR;
 
+enum TimerMode {
+    _OneShot,
+    _Periodic,
+    TSCDeadline,
+    Uninitialized,
+}
+
 pub struct LocalApic {
     pub proc_id: u8,
     pub id: u8,
@@ -8,6 +15,7 @@ pub struct LocalApic {
     nmi: u64,
     nmi_pin: u8,
     base: Option<usize>,
+    timer: TimerMode,
 }
 
 impl LocalApic {
@@ -17,12 +25,17 @@ impl LocalApic {
     const LINT_FLAG_LOW: u64 = 1 << 13;
     const LINT_FLAG_LVL: u64 = 1 << 15;
 
+    const _TIMER_MODE_ONE_SHOT: u32 = 0;
+    const _TIMER_MODE_PREDIODIC: u32 = 1 << 17;
+    const TIMER_MODE_TSC_DEADLINE: u32 = 0b10 << 17;
+
     const SIVR: usize = 0xff;
 
     const APIC_SIV_REG: usize = 0xf0;
-    const APIC_ID_REG: usize = 0x20;
+    const _APIC_ID_REG: usize = 0x20;
     const LVT_LINT0_REG: usize = 0x350;
     const LVT_LINT1_REG: usize = 0x360;
+    const TIMER_REG: usize = 0x320;
 
     pub unsafe fn new(ptr: *const MADT_LAPIC) -> LocalApic {
         LocalApic {
@@ -32,6 +45,7 @@ impl LocalApic {
             nmi: 0,
             nmi_pin: 0,
             base: None,
+            timer: TimerMode::Uninitialized,
         }
     }
 
@@ -95,5 +109,20 @@ impl LocalApic {
         } else {
             panic!("Accessing an unmapped local Apic");
         }
+    }
+
+    pub unsafe fn init_timer(&mut self) {
+        if let Some(base) = self.base {
+            if asm::x86_64::instruction::cpuid::check_tsc_deadline() {
+                asm!("mov [ecx], eax"
+                    :: "{ecx}"(base + Self::TIMER_REG),
+                    "{eax}"(Self::TIMER_MODE_TSC_DEADLINE)
+                    :: "intel");
+                let time = asm::x86_64::instruction::rdtsc();
+                asm::x86_64::reg::tsc_deadline::set(time + 1_000);
+                return;
+            }
+        }
+        unimplemented!();
     }
 }
