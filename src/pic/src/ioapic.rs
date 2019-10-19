@@ -60,9 +60,9 @@ impl IOApic {
 
     unsafe fn get_selector(&self, reg: u8) -> u32 {
         let mut selector: u32;
-        asm!("mov eax, [$0]"
+        asm!("mov eax, [ecx]"
                 : "={eax}"(selector)
-                : "r"(self.addr + Self::IOAPICREGSEL as u32)
+                : "{ecx}"(self.addr + Self::IOAPICREGSEL as u32)
                 :: "intel");
         (selector & !0xff) | reg as u32
     }
@@ -92,7 +92,7 @@ impl IOApic {
     }
 
     unsafe fn write_rtbl(&self, id: u8, value: u64) {
-        self.write_reg(id, (value & 0xffff) as u32);
+        self.write_reg(id, value as u32);
         self.write_reg(id + 1, (value >> 32) as u32);
     }
 }

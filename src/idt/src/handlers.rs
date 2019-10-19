@@ -38,3 +38,7 @@ pub extern "x86-interrupt" fn double_fault(sf: &mut StackFrame, err: usize) {
         asm::x86_64::instruction::hlt();
     }
 }
+
+pub extern "x86-interrupt" fn timer(_sf: &mut StackFrame) {
+    vga::println!("timer");
+}

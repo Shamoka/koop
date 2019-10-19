@@ -53,6 +53,7 @@ impl IDT_ {
             self.set_handler_with_error(0xd, handlers::general_protection_fault);
             self.set_handler_with_error(0xe, handlers::page_fault);
             self.set_handler_with_error(0x8, handlers::double_fault);
+            self.set_handler(34, handlers::timer);
             self.load(self.entries.get());
         }
     }

@@ -70,7 +70,7 @@ run-debug:	$(ISO)
 	qemu-system-x86_64 -smp 2 -cdrom $(ISO) $(QEMU_OPT) -s -S -d int -no-reboot
 
 run-kvm-debug:	$(ISO)
-	qemu-system-x86_64 -smp 2 --enable-kvm -cpu host -cdrom $(ISO) $(QEMU_OPT) -s -S -d int -no-reboot
+	qemu-system-x86_64 -smp 2 --enable-kvm -cpu host -cdrom $(ISO) $(QEMU_OPT) -s -S -no-reboot
 
 iso:	$(ISO)
 

@@ -2,7 +2,7 @@ use acpi::madt::MADT_LAPIC;
 use mem::allocator::ALLOCATOR;
 
 enum TimerMode {
-    _OneShot,
+    OneShot,
     _Periodic,
     TSCDeadline,
     Uninitialized,
@@ -12,7 +12,7 @@ pub struct LocalApic {
     pub proc_id: u8,
     pub id: u8,
     pub enabled: bool,
-    nmi: u64,
+    nmi: u32,
     nmi_pin: u8,
     base: Option<usize>,
     timer: TimerMode,
@@ -22,20 +22,21 @@ impl LocalApic {
     const ISO_FLAG_TRIG: u8 = 0b11 << 2;
     const ISO_FLAG_POL: u8 = 0b11;
 
-    const LINT_FLAG_LOW: u64 = 1 << 13;
-    const LINT_FLAG_LVL: u64 = 1 << 15;
+    const LINT_FLAG_LOW: u32 = 1 << 13;
+    const LINT_FLAG_LVL: u32 = 1 << 15;
 
-    const _TIMER_MODE_ONE_SHOT: u32 = 0;
+    const TIMER_MODE_ONE_SHOT: u32 = 0;
     const _TIMER_MODE_PREDIODIC: u32 = 1 << 17;
     const TIMER_MODE_TSC_DEADLINE: u32 = 0b10 << 17;
 
-    const SIVR: usize = 0xff;
+    const SIVR: u32 = 0xff;
 
     const APIC_SIV_REG: usize = 0xf0;
     const _APIC_ID_REG: usize = 0x20;
     const LVT_LINT0_REG: usize = 0x350;
     const LVT_LINT1_REG: usize = 0x360;
     const TIMER_REG: usize = 0x320;
+    const TIMER_INTIAL_COUNT_REG: usize = 0x380;
 
     pub unsafe fn new(ptr: *const MADT_LAPIC) -> LocalApic {
         LocalApic {
@@ -46,6 +47,30 @@ impl LocalApic {
             nmi_pin: 0,
             base: None,
             timer: TimerMode::Uninitialized,
+        }
+    }
+
+    unsafe fn write_reg(&self, reg: usize, value: u32) {
+        if let Some(base) = self.base {
+            asm!("mov [ecx], eax"
+                :: "{eax}"(value),
+                "{ecx}"(base + reg)
+                :: "intel");
+        } else {
+            panic!("Accessing an unmapped local Apic");
+        }
+    }
+
+    unsafe fn read_reg(&self, reg: usize) -> u32 {
+        if let Some(base) = self.base {
+            let ret: u32;
+            asm!("mov eax, [ecx]"
+                : "={eax}"(ret)
+                : "{ecx}"(base + reg)
+                :: "intel", "volatile");
+            ret
+        } else {
+            panic!("Accessing an unmapped local Apic");
         }
     }
 
@@ -61,7 +86,7 @@ impl LocalApic {
     }
 
     pub unsafe fn set_nmi(&mut self, nmi_pin: u8, flags: u8) {
-        self.nmi = (0b100 << 8) as u64;
+        self.nmi = (0b100 << 8) as u32;
         if flags & Self::ISO_FLAG_POL == Self::ISO_FLAG_POL {
             self.nmi |= Self::LINT_FLAG_LOW;
         }
@@ -72,57 +97,34 @@ impl LocalApic {
     }
 
     pub unsafe fn setup_nmi(&self) {
-        if let Some(base) = self.base {
-            if self.nmi != 0 {
-                let lvt_addr: usize;
-                if self.nmi_pin == 0 {
-                    lvt_addr = base + Self::LVT_LINT0_REG;
-                } else if self.nmi_pin == 1 {
-                    lvt_addr = base + Self::LVT_LINT1_REG;
-                } else {
-                    panic!("Unknown LINT pin for NMI");
-                }
-                asm!("mov [ecx], eax"
-                    :: "{ecx}"(lvt_addr), "{eax}"(self.nmi)
-                    :: "intel", "volatile");
+        if self.nmi != 0 {
+            if self.nmi_pin == 0 {
+                self.write_reg(Self::LVT_LINT0_REG, self.nmi);
+            } else if self.nmi_pin == 1 {
+                self.write_reg(Self::LVT_LINT1_REG, self.nmi);
+            } else {
+                panic!("Unknown LINT pin for NMI");
             }
-        } else {
-            panic!("Accessing an unmapped local Apic");
         }
     }
 
     pub unsafe fn set_sivr(&self) {
-        let mut sivr: usize;
-
-        if let Some(base) = self.base {
-            asm!("mov rax, [rcx]"
-                : "={rax}"(sivr)
-                : "{rcx}"(base + Self::APIC_SIV_REG)
-                :: "intel", "volatile");
-            sivr &= !0xFF;
-            sivr |= 1 << 8;
-            sivr |= (Self::SIVR & 0xFF) as usize;
-            asm!("mov [rcx], rax"
-                :: "{rax}"(sivr),
-                "{rcx}"(base + Self::APIC_SIV_REG)
-                :: "intel", "volatile");
-        } else {
-            panic!("Accessing an unmapped local Apic");
-        }
+        let mut sivr = self.read_reg(Self::APIC_SIV_REG);
+        sivr &= !0xFF;
+        sivr |= 1 << 8;
+        sivr |= Self::SIVR & 0xFF;
+        self.write_reg(Self::APIC_SIV_REG, sivr);
     }
 
     pub unsafe fn init_timer(&mut self) {
-        if let Some(base) = self.base {
-            if asm::x86_64::instruction::cpuid::check_tsc_deadline() {
-                asm!("mov [ecx], eax"
-                    :: "{ecx}"(base + Self::TIMER_REG),
-                    "{eax}"(Self::TIMER_MODE_TSC_DEADLINE)
-                    :: "intel");
-                let time = asm::x86_64::instruction::rdtsc();
-                asm::x86_64::reg::tsc_deadline::set(time + 1_000);
-                return;
-            }
+        if asm::x86_64::instruction::cpuid::check_tsc_deadline() {
+            self.timer = TimerMode::TSCDeadline;
+            self.write_reg(Self::TIMER_REG, Self::TIMER_MODE_TSC_DEADLINE + 34);
+            let time = asm::x86_64::instruction::rdtsc();
+            asm::x86_64::reg::tsc_deadline::set(time + 1_000_000);
+            return;
+        } else {
+            unimplemented!();
         }
-        unimplemented!();
     }
 }
